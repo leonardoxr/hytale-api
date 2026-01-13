@@ -49,6 +49,7 @@ The plugin creates a `config.json` in its data directory on first run. See `conf
 | `bindAddress` | `0.0.0.0` | Network interface to bind |
 | `tls.enabled` | `false` | Enable HTTPS |
 | `websocket.enabled` | `true` | Enable WebSocket endpoint |
+| `websocket.statusBroadcastIntervalSeconds` | `5` | Server status broadcast interval (1 for real-time, 0 to disable) |
 
 ### Client Configuration
 

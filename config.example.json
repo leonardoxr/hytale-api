@@ -65,7 +65,8 @@
     "path": "/ws",
     "maxConnections": 100,
     "pingIntervalSeconds": 30,
-    "statusBroadcastIntervalSeconds": 5
+    "statusBroadcastIntervalSeconds": 5,
+    "_statusBroadcastIntervalSeconds_comment": "Set to 1 for real-time updates, 0 to disable"
   },
   "audit": {
     "enabled": true,
