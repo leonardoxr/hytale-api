@@ -521,6 +521,103 @@ Permissions use a hierarchical dot notation with wildcard support:
 - Review and limit client permissions appropriately
 - The RSA keypair is auto-generated on first run and stored in the plugin data directory
 
+## Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Getting Started
+
+1. **Fork the repository** and clone your fork
+2. **Set up the development environment:**
+   ```bash
+   # Clone with the Hytale Server SDK in the parent directory
+   git clone https://github.com/your-username/hytale-api.git
+   cd hytale-api
+
+   # Build to verify setup
+   ./gradlew build
+   ```
+
+3. **Read the documentation:**
+   - `CLAUDE.md` - Architecture overview and code patterns
+   - `PLANNED_FEATURES.md` - Roadmap and feature ideas
+
+### Development Workflow
+
+1. **Create a feature branch:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Follow the code style:**
+   - Use Java 25 features (records, sealed classes, pattern matching)
+   - Follow existing patterns in handlers and DTOs
+   - Add Javadoc for public methods
+   - Keep methods focused and small
+
+3. **Test your changes:**
+   ```bash
+   ./gradlew build          # Compile and package
+   ./gradlew compileJava    # Quick compile check
+   ```
+
+4. **Update documentation** if adding new endpoints or features
+
+5. **Commit with clear messages:**
+   ```bash
+   git commit -m "Add feature X for Y purpose"
+   ```
+
+### Code Structure
+
+```
+src/main/java/com/hytale/api/
+├── config/          # Configuration records
+├── dto/             # Request/response DTOs
+│   ├── request/     # Incoming request bodies
+│   └── response/    # Outgoing response bodies
+├── exception/       # API exception types
+├── http/            # HTTP handlers and routing
+│   └── handlers/    # Endpoint handlers by domain
+├── security/        # Auth, permissions, tokens
+└── websocket/       # WebSocket handling and events
+```
+
+### Adding a New Endpoint
+
+1. **Add permission** in `security/ApiPermissions.java`
+2. **Create request DTO** in `dto/request/` (if needed)
+3. **Add response record** in `dto/response/ApiResponses.java`
+4. **Create or update handler** in `http/handlers/`
+5. **Add route** in `http/HttpRequestRouter.java`
+6. **Update documentation** in `README.md` and `CLAUDE.md`
+
+### Adding a WebSocket Event
+
+1. **Add permission** in `security/ApiPermissions.java`
+2. **Update subscription check** in `websocket/WebSocketHandler.java`
+3. **Add event handler** in `websocket/EventBroadcaster.java`
+4. **Update documentation**
+
+### Pull Request Guidelines
+
+- Keep PRs focused on a single feature or fix
+- Include a clear description of changes
+- Reference any related issues
+- Ensure the build passes
+- Update relevant documentation
+
+### Reporting Issues
+
+- Use GitHub Issues for bug reports and feature requests
+- Include steps to reproduce for bugs
+- Check `PLANNED_FEATURES.md` before suggesting new features
+
+### Questions?
+
+- Open a GitHub Discussion for questions
+- Check existing issues and discussions first
+
 ## License
 
 MIT
