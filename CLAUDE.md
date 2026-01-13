@@ -79,7 +79,7 @@ Checked via `ClientIdentity.hasPermission()` and `ApiPermissions.matches()`.
 Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe with `{"type":"subscribe","events":["player.*","server.log"]}`.
 
 ### Configuration
-`ApiConfig` is a record hierarchy loaded from `config.json` in the plugin data directory. Nested records: `TlsConfig`, `JwtConfig`, `ClientConfig`, `RateLimitConfig`, `CorsConfig`, `WebSocketConfig`, `AuditConfig`.
+`ApiConfig` is a record hierarchy loaded from `config.json` in `mods/com.hytale_HytaleAPI/`. Nested records: `TlsConfig`, `JwtConfig`, `ClientConfig`, `RateLimitConfig`, `CorsConfig`, `WebSocketConfig`, `AuditConfig`.
 
 ### Error Handling
 `ApiException` is a sealed class with typed subclasses: `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `InternalError`, `RateLimited`. Each produces consistent JSON error responses.

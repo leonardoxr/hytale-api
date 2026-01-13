@@ -30,15 +30,15 @@ A secure REST and WebSocket API plugin for Hytale game servers. Provides authent
    ./gradlew build
    ```
 
-2. Copy `build/libs/hytale-api-1.0.0.jar` to your server's `plugins/` directory
+2. Copy `build/libs/hytale-api-1.0.0.jar` to your server's `mods/` directory
 
 3. Start the server - a default `config.json` will be generated
 
-4. Configure clients and permissions in `plugins/hytale-api/config.json`
+4. Configure clients and permissions in `mods/com.hytale_HytaleAPI/config.json`
 
 ## Configuration
 
-The plugin creates a `config.json` in its data directory on first run. See `config.example.json` for all options.
+The plugin creates a `config.json` in `mods/com.hytale_HytaleAPI/` on first run. See `config.example.json` for all options.
 
 ### Key Configuration Options
 
@@ -546,7 +546,7 @@ When modifying the API:
 - Use TLS in production environments
 - Restrict `bindAddress` to localhost if using a reverse proxy
 - Review and limit client permissions appropriately
-- The RSA keypair is auto-generated on first run and stored in the plugin data directory
+- The RSA keypair is auto-generated on first run and stored in `mods/com.hytale_HytaleAPI/`
 
 ## Contributing
 
