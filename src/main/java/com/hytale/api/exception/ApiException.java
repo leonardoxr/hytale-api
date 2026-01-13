@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  * Sealed exception hierarchy for API errors.
  * Uses Java 21 sealed classes for exhaustive pattern matching.
  */
+@SuppressWarnings("serial")
 public sealed abstract class ApiException extends RuntimeException
         permits ApiException.BadRequest,
                 ApiException.Unauthorized,
@@ -14,7 +15,7 @@ public sealed abstract class ApiException extends RuntimeException
                 ApiException.RateLimited,
                 ApiException.InternalError {
 
-    private final HttpResponseStatus status;
+    private final transient HttpResponseStatus status;
     private final String errorCode;
 
     protected ApiException(HttpResponseStatus status, String errorCode, String message) {

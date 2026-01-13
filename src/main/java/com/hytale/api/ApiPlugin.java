@@ -93,8 +93,14 @@ public final class ApiPlugin extends JavaPlugin {
 
         try {
             // Create Netty event loop groups
-            bossGroup = new NioEventLoopGroup(1);
-            workerGroup = new NioEventLoopGroup();
+            // Note: NioEventLoopGroup is deprecated in newer Netty versions but still functional
+            // and widely used. The replacement MultiThreadIoEventLoopGroup is not yet stable.
+            @SuppressWarnings("deprecation")
+            var boss = new NioEventLoopGroup(1);
+            @SuppressWarnings("deprecation")
+            var worker = new NioEventLoopGroup();
+            bossGroup = boss;
+            workerGroup = worker;
 
             // Configure and start server
             ServerBootstrap bootstrap = new ServerBootstrap()

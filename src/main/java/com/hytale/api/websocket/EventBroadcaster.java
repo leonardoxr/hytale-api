@@ -86,6 +86,7 @@ public final class EventBroadcaster {
     /**
      * Handle player ready event (fully joined).
      */
+    @SuppressWarnings("removal") // Entity.getUuid() deprecated but no replacement available yet
     private void onPlayerReady(PlayerReadyEvent event) {
         Player player = event.getPlayer();
         var world = player.getWorld();

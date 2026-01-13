@@ -15,8 +15,8 @@ A secure REST and WebSocket API plugin for Hytale game servers. Provides authent
 ## Requirements
 
 - Hytale Server (with plugin support)
-- Java 21 (not higher - Gradle compatibility)
-- Gradle 8.5+ (included via wrapper)
+- Java 25+
+- Gradle 9.2+ (included via wrapper)
 
 ## Installation
 

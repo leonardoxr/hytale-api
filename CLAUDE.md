@@ -21,7 +21,7 @@ The output JAR is placed in `build/libs/hytale-api-1.0.0.jar`.
 
 Hytale API Plugin is a Netty-based REST and WebSocket server that runs as a plugin inside a Hytale game server. It provides authenticated API access for server management and real-time event streaming.
 
-**Java Version:** 21 (uses preview features like pattern matching, records, sealed interfaces, virtual threads)
+**Java Version:** 25 (uses pattern matching, records, sealed interfaces, virtual threads)
 
 **Dependencies:** All runtime dependencies (Netty, Nimbus JOSE JWT, Gson) are bundled in HytaleServer.jar and accessed via `compileOnly`.
 
