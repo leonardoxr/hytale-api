@@ -1,0 +1,45 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.hytale'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Hytale Server (compile-only - provided at runtime)
+    compileOnly files('../../Server/HytaleServer.jar')
+
+    // All other dependencies are bundled in HytaleServer.jar:
+    // - Netty (io.netty)
+    // - Nimbus JOSE JWT (com.nimbusds)
+    // - Bouncy Castle (org.bouncycastle)
+    // - Gson (com.google.gson)
+}
+
+jar {
+    from('src/main/resources') {
+        include 'plugin.json'
+    }
+
+    manifest {
+        attributes(
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['--enable-preview']
+}
