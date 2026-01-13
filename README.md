@@ -1,5 +1,10 @@
 # Hytale API Plugin
 
+![Java](https://img.shields.io/badge/Java-25-orange)
+![Gradle](https://img.shields.io/badge/Gradle-9.2-blue)
+![Default Port](https://img.shields.io/badge/default%20port-8080-green)
+![License](https://img.shields.io/badge/license-MIT-brightgreen)
+
 A secure REST and WebSocket API plugin for Hytale game servers. Provides authenticated endpoints for server management, player monitoring, and real-time event streaming.
 
 ## Features
@@ -133,12 +138,56 @@ ws.onmessage = (event) => {
 
 ## API Reference
 
+### HTTP Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200` | Success |
+| `400` | Bad request / Invalid JSON |
+| `401` | Missing or invalid token |
+| `403` | Insufficient permissions |
+| `404` | Resource not found |
+| `429` | Rate limited |
+| `500` | Internal server error |
+
 ### Public Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | POST | `/auth/token` | Obtain JWT token |
+
+<details>
+<summary><code>GET /health</code> - Response</summary>
+
+```json
+{
+  "status": "healthy",
+  "timestamp": 1705312200000
+}
+```
+</details>
+
+<details>
+<summary><code>POST /auth/token</code> - Request & Response</summary>
+
+**Request:**
+```json
+{
+  "client_id": "admin",
+  "client_secret": "yourpassword"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+</details>
 
 ### Protected Endpoints
 
@@ -156,6 +205,192 @@ ws.onmessage = (event) => {
 | POST | `/admin/ban` | `api.admin.ban` | Ban player |
 | POST | `/admin/broadcast` | `api.admin.broadcast` | Broadcast message |
 
+<details>
+<summary><code>GET /server/status</code> - Response</summary>
+
+```json
+{
+  "name": "My Hytale Server",
+  "version": "1.0.0",
+  "players": 15,
+  "maxPlayers": 100,
+  "uptime": 3600000,
+  "memory": {
+    "used": 1073741824,
+    "max": 4294967296
+  }
+}
+```
+</details>
+
+<details>
+<summary><code>GET /players</code> - Response</summary>
+
+```json
+{
+  "count": 2,
+  "players": [
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Steve",
+      "world": "world_1",
+      "position": { "x": 100.5, "y": 64.0, "z": -200.3 },
+      "connectedTime": 1800000
+    },
+    {
+      "uuid": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "name": "Alex",
+      "world": "world_1",
+      "position": { "x": 50.0, "y": 72.0, "z": 100.0 },
+      "connectedTime": 900000
+    }
+  ]
+}
+```
+</details>
+
+<details>
+<summary><code>GET /players/{uuid}</code> - Response</summary>
+
+```json
+{
+  "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Steve",
+  "world": "world_1",
+  "position": { "x": 100.5, "y": 64.0, "z": -200.3 },
+  "connectedTime": 1800000,
+  "stats": {
+    "health": 100,
+    "deaths": 5,
+    "kills": 12
+  },
+  "gameMode": "Adventure"
+}
+```
+</details>
+
+<details>
+<summary><code>GET /worlds</code> - Response</summary>
+
+```json
+{
+  "count": 2,
+  "worlds": [
+    {
+      "uuid": "123e4567-e89b-12d3-a456-426614174000",
+      "name": "world_1",
+      "players": 15,
+      "type": "default"
+    },
+    {
+      "uuid": "987fcdeb-51a2-3bc4-d567-890123456789",
+      "name": "world_nether",
+      "players": 3,
+      "type": "nether"
+    }
+  ]
+}
+```
+</details>
+
+<details>
+<summary><code>POST /admin/command</code> - Request & Response</summary>
+
+**Request:**
+```json
+{
+  "command": "say Hello everyone!"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Command queued for execution: say Hello everyone!"
+}
+```
+</details>
+
+<details>
+<summary><code>POST /admin/kick</code> - Request & Response</summary>
+
+**Request:**
+```json
+{
+  "player": "Steve",
+  "reason": "AFK too long"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "action": "kick",
+  "target": "Steve",
+  "message": "Player kicked: AFK too long"
+}
+```
+</details>
+
+<details>
+<summary><code>POST /admin/ban</code> - Request & Response</summary>
+
+**Request:**
+```json
+{
+  "player": "Griefer123",
+  "reason": "Griefing",
+  "duration": 1440,
+  "permanent": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "action": "ban",
+  "target": "Griefer123",
+  "message": "Player banned for 1440 minutes"
+}
+```
+</details>
+
+<details>
+<summary><code>POST /admin/broadcast</code> - Request & Response</summary>
+
+**Request:**
+```json
+{
+  "message": "Server restart in 5 minutes!"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "action": "broadcast",
+  "target": "all",
+  "message": "Broadcast sent to 15 players"
+}
+```
+</details>
+
+<details>
+<summary>Error Response Format</summary>
+
+```json
+{
+  "error": "Forbidden",
+  "code": "INSUFFICIENT_PERMISSIONS",
+  "message": "Required permission: api.admin.command"
+}
+```
+</details>
+
 ### WebSocket Events
 
 | Event | Permission | Description |
@@ -164,6 +399,42 @@ ws.onmessage = (event) => {
 | `player.join` | `api.websocket.subscribe.players` | Player fully joined |
 | `player.leave` | `api.websocket.subscribe.players` | Player disconnected |
 | `server.status` | `api.websocket.subscribe.status` | Periodic status update |
+
+<details>
+<summary>WebSocket Message Format</summary>
+
+**Event message:**
+```json
+{
+  "type": "player.join",
+  "data": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Steve",
+    "world": "world_1"
+  },
+  "timestamp": 1705312200000
+}
+```
+
+**Auth success:**
+```json
+{
+  "type": "auth_success",
+  "clientId": "admin",
+  "expiresIn": 3600
+}
+```
+
+**Error:**
+```json
+{
+  "type": "error",
+  "code": "INVALID_TOKEN",
+  "message": "Token has expired",
+  "timestamp": 1705312200000
+}
+```
+</details>
 
 ## Permissions
 
