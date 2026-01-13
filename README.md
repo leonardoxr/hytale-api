@@ -513,6 +513,33 @@ Permissions use a hierarchical dot notation with wildcard support:
 - `api.websocket.connect` - Connect to WebSocket
 - `api.websocket.subscribe.*` - Subscribe to all events
 
+## OpenAPI Specification
+
+The API is fully documented in `openapi.yaml` at the project root. This specification:
+
+- Describes all endpoints, request/response schemas, and authentication
+- Serves as the source of truth for TypeScript type generation
+- Can be used with tools like Swagger UI for interactive documentation
+
+### TypeScript Type Generation
+
+The companion dashboard (`hytale-dashboard`) uses `openapi-typescript` to generate types from the spec:
+
+```bash
+# In hytale-dashboard
+bun run generate:types
+```
+
+This generates `src/lib/api/types.ts` with fully-typed interfaces matching the Java DTOs.
+
+### Keeping Types in Sync
+
+When modifying the API:
+
+1. Update Java DTOs in `src/main/java/com/hytale/api/dto/`
+2. Update `openapi.yaml` to match the changes
+3. Run `bun run generate:types` in the dashboard
+
 ## Security Considerations
 
 - Change default client credentials before production use

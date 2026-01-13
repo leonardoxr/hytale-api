@@ -160,6 +160,19 @@ Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe
 | POST | /admin/broadcast | api.admin.broadcast |
 | POST | /chat/mute/{uuid} | api.chat.mute |
 
+## OpenAPI Specification
+
+The API is documented in `openapi.yaml` at the project root. This spec is used to generate TypeScript types for API consumers.
+
+**IMPORTANT:** When modifying endpoints or DTOs:
+1. Update the corresponding Java code in `dto/request/` or `dto/response/`
+2. Update `openapi.yaml` to match the changes
+
+The OpenAPI spec must stay in sync with the Java implementation. Key files:
+- `dto/request/*.java` - Request DTOs
+- `dto/response/ApiResponses.java` - Response DTOs
+- `openapi.yaml` - API specification (source of truth for client type generation)
+
 ## Handler Structure
 
 Handlers are organized by domain:
