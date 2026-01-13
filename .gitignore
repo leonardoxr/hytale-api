@@ -3,6 +3,9 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# Claude
+.claude/
+
 # IDE
 .idea/
 *.iml
@@ -23,3 +26,6 @@ jwt-keypair.pem
 # Logs
 *.log
 logs/
+
+# Temp files
+tmpclaude-*

@@ -15,7 +15,8 @@ A secure REST and WebSocket API plugin for Hytale game servers. Provides authent
 ## Requirements
 
 - Hytale Server (with plugin support)
-- Java 21+
+- Java 21 (not higher - Gradle compatibility)
+- Gradle 8.5+ (included via wrapper)
 
 ## Installation
 
@@ -46,8 +47,21 @@ The plugin creates a `config.json` in its data directory on first run. See `conf
 
 ### Client Configuration
 
-Clients are defined in the `clients` array with bcrypt-hashed secrets:
+Clients are defined in the `clients` array with bcrypt-hashed secrets.
 
+**Generating a bcrypt hash:**
+```bash
+# Using htpasswd (Apache)
+htpasswd -bnBC 12 "" yourpassword | tr -d ':'
+
+# Using Python
+python -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(12)).decode())"
+
+# Using Node.js
+node -e "const bcrypt=require('bcryptjs');console.log(bcrypt.hashSync('yourpassword',12))"
+```
+
+**Example configuration:**
 ```json
 {
   "clients": [

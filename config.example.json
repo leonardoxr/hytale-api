@@ -19,14 +19,14 @@
   "clients": [
     {
       "id": "admin",
-      "secret": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4L0Qd1U4M9FWML5m",
-      "description": "Default admin client (password: admin)",
+      "secret": "$2a$12$YOUR_BCRYPT_HASH_HERE",
+      "description": "Admin client - CHANGE SECRET BEFORE USE",
       "permissions": ["api.*"],
       "enabled": true
     },
     {
       "id": "monitor",
-      "secret": "$2a$12$examplehash",
+      "secret": "$2a$12$YOUR_BCRYPT_HASH_HERE",
       "description": "Read-only monitoring client",
       "permissions": [
         "api.status.read",

@@ -255,7 +255,7 @@ public record ApiConfig(
                 JwtConfig.defaults(),
                 List.of(new ClientConfig(
                         "admin",
-                        "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4L0Qd1U4M9FWML5m", // "admin" bcrypt hashed
+                        "$2a$12$CHANGE_THIS_HASH_BEFORE_USE", // Generate with: htpasswd -bnBC 12 "" yourpassword | tr -d ':'
                         "Default admin client",
                         Set.of("api.*"),
                         true

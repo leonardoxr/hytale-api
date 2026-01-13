@@ -72,14 +72,12 @@ public final class AuthHandler {
         }
 
         try {
-            // Handle both bcrypt hash and plain text (for development)
-            if (storedHash.startsWith("$2")) {
-                // BCrypt hash - use constant-time comparison
-                return verifyBcrypt(password, storedHash);
-            } else {
-                // Plain text comparison (development only - not recommended)
-                return password.equals(storedHash);
+            // Only accept bcrypt hashes for security
+            if (!storedHash.startsWith("$2")) {
+                LOGGER.warning("Invalid password hash format - must be bcrypt");
+                return false;
             }
+            return verifyBcrypt(password, storedHash);
         } catch (Exception e) {
             LOGGER.warning("Password verification failed: " + e.getMessage());
             return false;
