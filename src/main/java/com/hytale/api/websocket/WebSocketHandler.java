@@ -228,9 +228,11 @@ public final class WebSocketHandler extends SimpleChannelInboundHandler<TextWebS
             case "player.join", "player.leave", "player.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_PLAYERS;
             case "player.chat", "chat.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_CHAT;
             case "server.status", "server.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_STATUS;
+            case "server.log", "server.logs", "logs.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_LOGS;
             case "*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_ALL;
             default -> {
                 if (eventType.startsWith("player.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_PLAYERS;
+                if (eventType.startsWith("server.log")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_LOGS;
                 if (eventType.startsWith("server.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_STATUS;
                 yield ApiPermissions.WEBSOCKET_SUBSCRIBE_ALL;
             }

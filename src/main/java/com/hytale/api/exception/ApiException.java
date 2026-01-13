@@ -85,6 +85,26 @@ public sealed abstract class ApiException extends RuntimeException
         public static BadRequest invalidJson(String details) {
             return new BadRequest("INVALID_JSON", "Invalid JSON: " + details);
         }
+
+        public static BadRequest outOfBounds(String field, String reason) {
+            return new BadRequest("OUT_OF_BOUNDS", "Value out of bounds for '%s': %s".formatted(field, reason));
+        }
+
+        public static BadRequest invalidItem(String reason) {
+            return new BadRequest("INVALID_ITEM", "Invalid item: " + reason);
+        }
+
+        public static BadRequest invalidGameMode(String mode) {
+            return new BadRequest("INVALID_GAMEMODE", "Invalid game mode: " + mode);
+        }
+
+        public static BadRequest invalidWeather(String weather) {
+            return new BadRequest("INVALID_WEATHER", "Invalid weather type: " + weather);
+        }
+
+        public static BadRequest invalidCoordinates(String reason) {
+            return new BadRequest("INVALID_COORDINATES", "Invalid coordinates: " + reason);
+        }
     }
 
     /**
@@ -160,6 +180,23 @@ public sealed abstract class ApiException extends RuntimeException
 
         public static NotFound world(String identifier) {
             return new NotFound("WORLD_NOT_FOUND", "World not found: " + identifier);
+        }
+
+        public static NotFound entity(String identifier) {
+            return new NotFound("ENTITY_NOT_FOUND", "Entity not found: " + identifier);
+        }
+
+        public static NotFound block(int x, int y, int z, String world) {
+            return new NotFound("BLOCK_NOT_FOUND",
+                    "Block not found at %d,%d,%d in world %s".formatted(x, y, z, world));
+        }
+
+        public static NotFound plugin(String name) {
+            return new NotFound("PLUGIN_NOT_FOUND", "Plugin not found: " + name);
+        }
+
+        public static NotFound inventorySlot(int slot) {
+            return new NotFound("SLOT_NOT_FOUND", "Inventory slot not found: " + slot);
         }
     }
 

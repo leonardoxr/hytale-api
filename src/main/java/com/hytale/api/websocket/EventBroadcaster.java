@@ -6,6 +6,8 @@ import com.hypixel.hytale.event.EventRegistry;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.*;
+import com.hypixel.hytale.server.core.event.events.entity.EntityRemoveEvent;
+import com.hypixel.hytale.server.core.event.events.ecs.ChangeGameModeEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
 
@@ -39,10 +41,23 @@ public final class EventBroadcaster {
      * Register all event listeners.
      */
     public void registerEvents(EventRegistry eventRegistry) {
-        // Player events
+        // Player connection events
         eventRegistry.registerGlobal(PlayerConnectEvent.class, this::onPlayerConnect);
         eventRegistry.registerGlobal(PlayerDisconnectEvent.class, this::onPlayerDisconnect);
         eventRegistry.registerGlobal(PlayerReadyEvent.class, this::onPlayerReady);
+
+        // Player chat event
+        eventRegistry.registerGlobal(PlayerChatEvent.class, this::onPlayerChat);
+
+        // Game mode change event
+        eventRegistry.registerGlobal(ChangeGameModeEvent.class, this::onPlayerGameModeChange);
+
+        // Entity events
+        eventRegistry.registerGlobal(EntityRemoveEvent.class, this::onEntityRemove);
+
+        // Note: Block events (PlaceBlockEvent, BreakBlockEvent) and inventory events
+        // are not yet available in the current Hytale server SDK.
+        // They will be added when the SDK supports them.
 
         LOGGER.info("Event listeners registered for WebSocket broadcast");
 
@@ -151,6 +166,59 @@ public final class EventBroadcaster {
             LOGGER.warning("Status broadcast failed: " + e.getMessage());
         }
     }
+
+    /**
+     * Handle player chat event.
+     */
+    private void onPlayerChat(PlayerChatEvent event) {
+        var playerRef = event.getSender();
+        String content = event.getContent();
+
+        String payload = """
+                {"uuid":"%s","name":"%s","message":"%s"}"""
+                .formatted(
+                        playerRef.getUuid(),
+                        escapeJson(playerRef.getUsername()),
+                        escapeJson(content)
+                );
+
+        sessionManager.broadcast("player.chat", payload);
+    }
+
+    /**
+     * Handle game mode change event.
+     */
+    private void onPlayerGameModeChange(ChangeGameModeEvent event) {
+        // TODO: Extract player info and game mode from event
+        String payload = """
+                {"gameMode":"%s"}"""
+                .formatted(escapeJson(event.getGameMode().name()));
+
+        sessionManager.broadcast("player.gamemode", payload);
+    }
+
+    // Note: Block event handlers (onBlockPlace, onBlockBreak) will be added
+    // when PlaceBlockEvent and BreakBlockEvent become available in the SDK.
+
+    /**
+     * Handle entity remove event.
+     */
+    @SuppressWarnings("removal")
+    private void onEntityRemove(EntityRemoveEvent event) {
+        var entity = event.getEntity();
+
+        String payload = """
+                {"uuid":"%s","type":"%s"}"""
+                .formatted(
+                        entity.getUuid(),
+                        entity.getClass().getSimpleName()
+                );
+
+        sessionManager.broadcast("entity.remove", payload);
+    }
+
+    // Note: Inventory change event handler will be added when
+    // LivingEntityInventoryChangeEvent becomes available in the SDK.
 
     /**
      * Shutdown the broadcaster.

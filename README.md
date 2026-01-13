@@ -191,19 +191,66 @@ ws.onmessage = (event) => {
 
 ### Protected Endpoints
 
+#### Server Management
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
 | GET | `/server/status` | `api.status.read` | Server status |
 | GET | `/server/stats` | `api.status.read` | Detailed server statistics |
+| GET | `/server/version` | `api.version.read` | Game/protocol version info |
+| GET | `/server/metrics` | `api.server.metrics.read` | Performance metrics |
+| GET | `/server/plugins` | `api.server.plugins.read` | List loaded plugins |
+| POST | `/server/whitelist` | `api.server.whitelist.write` | Manage whitelist |
+| POST | `/server/save` | `api.server.save` | Force world save |
+
+#### Players
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
 | GET | `/players` | `api.players.read` | List online players |
 | GET | `/players/{uuid}` | `api.players.read` | Player details |
+| GET | `/players/{uuid}/stats` | `api.players.stats.read` | Player stats (health, mana, etc.) |
+| GET | `/players/{uuid}/location` | `api.players.location.read` | Player position and world |
+| POST | `/players/{uuid}/teleport` | `api.players.teleport` | Teleport player |
+| GET | `/players/{uuid}/gamemode` | `api.players.gamemode.read` | Get game mode |
+| POST | `/players/{uuid}/gamemode` | `api.players.gamemode.write` | Set game mode |
+| GET | `/players/{uuid}/permissions` | `api.players.permissions.read` | List permissions |
+| POST | `/players/{uuid}/permissions` | `api.players.permissions.write` | Grant permission |
+| DELETE | `/players/{uuid}/permissions/{perm}` | `api.players.permissions.write` | Revoke permission |
+| GET | `/players/{uuid}/groups` | `api.players.groups.read` | List groups |
+| POST | `/players/{uuid}/groups` | `api.players.groups.write` | Add to group |
+| POST | `/players/{uuid}/message` | `api.players.message` | Send private message |
+
+#### Player Inventory
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/players/{uuid}/inventory` | `api.players.inventory.read` | Full inventory |
+| GET | `/players/{uuid}/inventory/hotbar` | `api.players.inventory.read` | Hotbar slots |
+| GET | `/players/{uuid}/inventory/armor` | `api.players.inventory.read` | Armor slots |
+| GET | `/players/{uuid}/inventory/storage` | `api.players.inventory.read` | Storage slots |
+| POST | `/players/{uuid}/inventory/give` | `api.players.inventory.write` | Give item |
+| POST | `/players/{uuid}/inventory/clear` | `api.players.inventory.write` | Clear inventory |
+
+#### Worlds
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
 | GET | `/worlds` | `api.worlds.read` | List worlds |
 | GET | `/worlds/{id}` | `api.worlds.read` | World details |
 | GET | `/worlds/{id}/stats` | `api.worlds.read` | World statistics |
+| GET | `/worlds/{id}/time` | `api.worlds.time.read` | Get world time |
+| POST | `/worlds/{id}/time` | `api.worlds.time.write` | Set world time |
+| GET | `/worlds/{id}/weather` | `api.worlds.weather.read` | Get weather |
+| POST | `/worlds/{id}/weather` | `api.worlds.weather.write` | Set weather |
+| GET | `/worlds/{id}/entities` | `api.worlds.entities.read` | List entities |
+| GET | `/worlds/{id}/blocks/{x}/{y}/{z}` | `api.worlds.blocks.read` | Get block |
+| POST | `/worlds/{id}/blocks/{x}/{y}/{z}` | `api.worlds.blocks.write` | Set block |
+
+#### Admin & Chat
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
 | POST | `/admin/command` | `api.admin.command` | Execute server command |
 | POST | `/admin/kick` | `api.admin.kick` | Kick player |
 | POST | `/admin/ban` | `api.admin.ban` | Ban player |
 | POST | `/admin/broadcast` | `api.admin.broadcast` | Broadcast message |
+| POST | `/chat/mute/{uuid}` | `api.chat.mute` | Mute player |
 
 <details>
 <summary><code>GET /server/status</code> - Response</summary>
@@ -398,7 +445,11 @@ ws.onmessage = (event) => {
 | `player.connect` | `api.websocket.subscribe.players` | Player connecting |
 | `player.join` | `api.websocket.subscribe.players` | Player fully joined |
 | `player.leave` | `api.websocket.subscribe.players` | Player disconnected |
+| `player.chat` | `api.websocket.subscribe.chat` | Chat message sent |
+| `player.gamemode` | `api.websocket.subscribe.players` | Game mode changed |
+| `entity.remove` | `api.websocket.subscribe.entities` | Entity removed |
 | `server.status` | `api.websocket.subscribe.status` | Periodic status update |
+| `server.log` | `api.websocket.subscribe.logs` | Server log output |
 
 <details>
 <summary>WebSocket Message Format</summary>
@@ -411,6 +462,21 @@ ws.onmessage = (event) => {
     "uuid": "550e8400-e29b-41d4-a716-446655440000",
     "name": "Steve",
     "world": "world_1"
+  },
+  "timestamp": 1705312200000
+}
+```
+
+**Log event:**
+```json
+{
+  "type": "server.log",
+  "data": {
+    "level": "INFO",
+    "message": "Player Steve joined the game",
+    "logger": "com.hytale.server.PlayerManager",
+    "time": "14:23:45.123",
+    "thread": "Server-Main"
   },
   "timestamp": 1705312200000
 }

@@ -69,10 +69,14 @@ Checked via `ClientIdentity.hasPermission()` and `ApiPermissions.matches()`.
 
 ### WebSocket Events
 `EventBroadcaster` subscribes to Hytale server events and pushes to WebSocket clients:
-- `player.join`, `player.leave`, `player.connect`
-- `server.status` (periodic broadcast via virtual thread scheduler)
+- `player.connect`, `player.join`, `player.leave` - Connection lifecycle
+- `player.chat` - Chat messages
+- `player.gamemode` - Game mode changes
+- `entity.remove` - Entity removal
+- `server.status` - Periodic status (via virtual thread scheduler)
+- `server.log` - Real-time server log streaming (via `LogBroadcaster`)
 
-Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe with `{"type":"subscribe","events":["player.*"]}`.
+Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe with `{"type":"subscribe","events":["player.*","server.log"]}`.
 
 ### Configuration
 `ApiConfig` is a record hierarchy loaded from `config.json` in the plugin data directory. Nested records: `TlsConfig`, `JwtConfig`, `ClientConfig`, `RateLimitConfig`, `CorsConfig`, `WebSocketConfig`, `AuditConfig`.
@@ -89,18 +93,84 @@ Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe
 
 ## API Endpoints
 
-| Method | Path | Auth | Permission |
-|--------|------|------|------------|
-| GET | /health | No | - |
-| POST | /auth/token | No | - |
-| GET | /server/status | Yes | api.status.read |
-| GET | /server/stats | Yes | api.status.read |
-| GET | /players | Yes | api.players.read |
-| GET | /players/{uuid} | Yes | api.players.read |
-| GET | /worlds | Yes | api.worlds.read |
-| GET | /worlds/{id} | Yes | api.worlds.read |
-| GET | /worlds/{id}/stats | Yes | api.worlds.read |
-| POST | /admin/command | Yes | api.admin.command |
-| POST | /admin/kick | Yes | api.admin.kick |
-| POST | /admin/ban | Yes | api.admin.ban |
-| POST | /admin/broadcast | Yes | api.admin.broadcast |
+### Public
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /health | Health check |
+| POST | /auth/token | Obtain JWT token |
+
+### Server Management
+| Method | Path | Permission |
+|--------|------|------------|
+| GET | /server/status | api.status.read |
+| GET | /server/stats | api.status.read |
+| GET | /server/version | api.version.read |
+| GET | /server/metrics | api.server.metrics.read |
+| GET | /server/plugins | api.server.plugins.read |
+| POST | /server/whitelist | api.server.whitelist.write |
+| POST | /server/save | api.server.save |
+
+### Players
+| Method | Path | Permission |
+|--------|------|------------|
+| GET | /players | api.players.read |
+| GET | /players/{uuid} | api.players.read |
+| GET | /players/{uuid}/stats | api.players.stats.read |
+| GET | /players/{uuid}/location | api.players.location.read |
+| POST | /players/{uuid}/teleport | api.players.teleport |
+| GET | /players/{uuid}/gamemode | api.players.gamemode.read |
+| POST | /players/{uuid}/gamemode | api.players.gamemode.write |
+| GET | /players/{uuid}/permissions | api.players.permissions.read |
+| POST | /players/{uuid}/permissions | api.players.permissions.write |
+| DELETE | /players/{uuid}/permissions/{perm} | api.players.permissions.write |
+| GET | /players/{uuid}/groups | api.players.groups.read |
+| POST | /players/{uuid}/groups | api.players.groups.write |
+| POST | /players/{uuid}/message | api.players.message |
+
+### Player Inventory
+| Method | Path | Permission |
+|--------|------|------------|
+| GET | /players/{uuid}/inventory | api.players.inventory.read |
+| GET | /players/{uuid}/inventory/hotbar | api.players.inventory.read |
+| GET | /players/{uuid}/inventory/armor | api.players.inventory.read |
+| GET | /players/{uuid}/inventory/storage | api.players.inventory.read |
+| POST | /players/{uuid}/inventory/give | api.players.inventory.write |
+| POST | /players/{uuid}/inventory/clear | api.players.inventory.write |
+
+### Worlds
+| Method | Path | Permission |
+|--------|------|------------|
+| GET | /worlds | api.worlds.read |
+| GET | /worlds/{id} | api.worlds.read |
+| GET | /worlds/{id}/stats | api.worlds.read |
+| GET | /worlds/{id}/time | api.worlds.time.read |
+| POST | /worlds/{id}/time | api.worlds.time.write |
+| GET | /worlds/{id}/weather | api.worlds.weather.read |
+| POST | /worlds/{id}/weather | api.worlds.weather.write |
+| GET | /worlds/{id}/entities | api.worlds.entities.read |
+| GET | /worlds/{id}/blocks/{x}/{y}/{z} | api.worlds.blocks.read |
+| POST | /worlds/{id}/blocks/{x}/{y}/{z} | api.worlds.blocks.write |
+
+### Admin & Chat
+| Method | Path | Permission |
+|--------|------|------------|
+| POST | /admin/command | api.admin.command |
+| POST | /admin/kick | api.admin.kick |
+| POST | /admin/ban | api.admin.ban |
+| POST | /admin/broadcast | api.admin.broadcast |
+| POST | /chat/mute/{uuid} | api.chat.mute |
+
+## Handler Structure
+
+Handlers are organized by domain:
+- `AuthHandler` - Token generation
+- `StatusHandler` - Server status and stats
+- `VersionHandler` - Version information
+- `PlayerHandler` - Basic player listing
+- `PlayerExtendedHandler` - Stats, location, teleport, gamemode, permissions
+- `PlayerInventoryHandler` - Inventory management
+- `WorldHandler` - World listing and details
+- `WorldExtendedHandler` - Time, weather, entities, blocks
+- `ServerExtendedHandler` - Metrics, plugins, whitelist, save
+- `ChatHandler` - Chat muting
+- `AdminHandler` - Commands, kick, ban, broadcast

@@ -4,6 +4,7 @@ import com.hytale.api.config.ApiConfig;
 import com.hytale.api.http.ApiChannelInitializer;
 import com.hytale.api.security.TokenGenerator;
 import com.hytale.api.websocket.EventBroadcaster;
+import com.hytale.api.websocket.LogBroadcaster;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import io.netty.bootstrap.ServerBootstrap;
@@ -43,6 +44,7 @@ public final class ApiPlugin extends JavaPlugin {
     private Channel serverChannel;
     private ApiChannelInitializer channelInitializer;
     private EventBroadcaster eventBroadcaster;
+    private LogBroadcaster logBroadcaster;
 
     public ApiPlugin(JavaPluginInit init) {
         super(init);
@@ -73,6 +75,9 @@ public final class ApiPlugin extends JavaPlugin {
             if (config.websocket().enabled()) {
                 eventBroadcaster = new EventBroadcaster(config, channelInitializer.getWebSocketSessionManager());
                 eventBroadcaster.registerEvents(getEventRegistry());
+
+                // Initialize log broadcaster for WebSocket log streaming
+                logBroadcaster = new LogBroadcaster(config, channelInitializer.getWebSocketSessionManager());
             }
 
             LOGGER.info("HytaleAPI plugin setup complete");
@@ -120,6 +125,11 @@ public final class ApiPlugin extends JavaPlugin {
             LOGGER.info("HytaleAPI server started on %s://%s:%d"
                     .formatted(protocol, config.bindAddress(), config.port()));
 
+            // Start log broadcaster for WebSocket log streaming
+            if (logBroadcaster != null) {
+                logBroadcaster.start();
+            }
+
             // Log enabled features
             logEnabledFeatures();
 
@@ -132,6 +142,11 @@ public final class ApiPlugin extends JavaPlugin {
     @Override
     protected void shutdown() {
         LOGGER.info("Shutting down HytaleAPI plugin...");
+
+        // Stop log broadcaster first (before other shutdown logs)
+        if (logBroadcaster != null) {
+            logBroadcaster.stop();
+        }
 
         // Shutdown event broadcaster
         if (eventBroadcaster != null) {
@@ -198,7 +213,7 @@ public final class ApiPlugin extends JavaPlugin {
         LOGGER.info("  POST /admin/broadcast     - Broadcast message");
 
         if (config.websocket().enabled()) {
-            LOGGER.info("WebSocket events: player.join, player.leave, player.chat, server.status");
+            LOGGER.info("WebSocket events: player.join, player.leave, player.chat, server.status, server.log");
         }
     }
 

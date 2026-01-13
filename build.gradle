@@ -41,5 +41,14 @@ jar {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs += ['--enable-preview', '-Xlint:all', '-Werror']
+    // Enable preview features and common lint checks
+    // Excluding: deprecation (SDK uses deprecated methods), removal (SDK deprecated APIs)
+    options.compilerArgs += [
+        '--enable-preview',
+        '-Xlint:all',
+        '-Xlint:-deprecation',
+        '-Xlint:-removal',
+        '-Xlint:-preview',
+        '-Werror'
+    ]
 }

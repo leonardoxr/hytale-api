@@ -36,6 +36,31 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
     private static final Pattern WORLDS_STATS = Pattern.compile("^/worlds/([^/]+)/stats$");
     private static final Pattern ADMIN_PATTERN = Pattern.compile("^/admin/(command|kick|ban|broadcast)$");
 
+    // Extended player patterns (more specific patterns first)
+    private static final Pattern PLAYERS_INVENTORY_HOTBAR = Pattern.compile("^/players/([a-fA-F0-9-]+)/inventory/hotbar$");
+    private static final Pattern PLAYERS_INVENTORY_ARMOR = Pattern.compile("^/players/([a-fA-F0-9-]+)/inventory/armor$");
+    private static final Pattern PLAYERS_INVENTORY_STORAGE = Pattern.compile("^/players/([a-fA-F0-9-]+)/inventory/storage$");
+    private static final Pattern PLAYERS_INVENTORY_GIVE = Pattern.compile("^/players/([a-fA-F0-9-]+)/inventory/give$");
+    private static final Pattern PLAYERS_INVENTORY_CLEAR = Pattern.compile("^/players/([a-fA-F0-9-]+)/inventory/clear$");
+    private static final Pattern PLAYERS_INVENTORY = Pattern.compile("^/players/([a-fA-F0-9-]+)/inventory$");
+    private static final Pattern PLAYERS_STATS = Pattern.compile("^/players/([a-fA-F0-9-]+)/stats$");
+    private static final Pattern PLAYERS_LOCATION = Pattern.compile("^/players/([a-fA-F0-9-]+)/location$");
+    private static final Pattern PLAYERS_TELEPORT = Pattern.compile("^/players/([a-fA-F0-9-]+)/teleport$");
+    private static final Pattern PLAYERS_GAMEMODE = Pattern.compile("^/players/([a-fA-F0-9-]+)/gamemode$");
+    private static final Pattern PLAYERS_PERMISSIONS = Pattern.compile("^/players/([a-fA-F0-9-]+)/permissions$");
+    private static final Pattern PLAYERS_PERMISSIONS_REVOKE = Pattern.compile("^/players/([a-fA-F0-9-]+)/permissions/(.+)$");
+    private static final Pattern PLAYERS_GROUPS = Pattern.compile("^/players/([a-fA-F0-9-]+)/groups$");
+    private static final Pattern PLAYERS_MESSAGE = Pattern.compile("^/players/([a-fA-F0-9-]+)/message$");
+
+    // Extended world patterns
+    private static final Pattern WORLDS_TIME = Pattern.compile("^/worlds/([^/]+)/time$");
+    private static final Pattern WORLDS_WEATHER = Pattern.compile("^/worlds/([^/]+)/weather$");
+    private static final Pattern WORLDS_ENTITIES = Pattern.compile("^/worlds/([^/]+)/entities$");
+    private static final Pattern WORLDS_BLOCK = Pattern.compile("^/worlds/([^/]+)/blocks/(-?\\d+)/(-?\\d+)/(-?\\d+)$");
+
+    // Chat pattern
+    private static final Pattern CHAT_MUTE = Pattern.compile("^/chat/mute/([a-fA-F0-9-]+)$");
+
     private final ApiConfig config;
     private final TokenGenerator tokenGenerator;
 
@@ -47,6 +72,14 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
     private final WorldsHandler worldsHandler;
     private final AdminHandler adminHandler;
     private final StatsHandler statsHandler;
+
+    // Extended handlers
+    private final VersionHandler versionHandler;
+    private final PlayerInventoryHandler playerInventoryHandler;
+    private final PlayerExtendedHandler playerExtendedHandler;
+    private final WorldExtendedHandler worldExtendedHandler;
+    private final ServerExtendedHandler serverExtendedHandler;
+    private final ChatHandler chatHandler;
 
     public HttpRequestRouter(ApiConfig config, TokenGenerator tokenGenerator) {
         this.config = config;
@@ -60,6 +93,14 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
         this.worldsHandler = new WorldsHandler();
         this.adminHandler = new AdminHandler();
         this.statsHandler = new StatsHandler();
+
+        // Initialize extended handlers
+        this.versionHandler = new VersionHandler();
+        this.playerInventoryHandler = new PlayerInventoryHandler();
+        this.playerExtendedHandler = new PlayerExtendedHandler();
+        this.worldExtendedHandler = new WorldExtendedHandler();
+        this.serverExtendedHandler = new ServerExtendedHandler();
+        this.chatHandler = new ChatHandler();
     }
 
     @Override
@@ -117,19 +158,182 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
             return statsHandler.handleServerStats(request, identity);
         }
 
-        // Players
+        // Server version
+        if (path.equals("/server/version") && method == HttpMethod.GET) {
+            return versionHandler.handle(request, identity);
+        }
+
+        // Server metrics
+        if (path.equals("/server/metrics") && method == HttpMethod.GET) {
+            return serverExtendedHandler.handleMetrics(request, identity);
+        }
+
+        // Server plugins
+        if (path.equals("/server/plugins") && method == HttpMethod.GET) {
+            return serverExtendedHandler.handlePlugins(request, identity);
+        }
+
+        // Server whitelist
+        if (path.equals("/server/whitelist") && method == HttpMethod.POST) {
+            return serverExtendedHandler.handleWhitelist(request, identity);
+        }
+
+        // Server save
+        if (path.equals("/server/save") && method == HttpMethod.POST) {
+            return serverExtendedHandler.handleSave(request, identity);
+        }
+
+        // Players list
         if (path.equals("/players") && method == HttpMethod.GET) {
             return playersHandler.handleList(request, identity);
         }
 
+        // Player inventory - specific endpoints first
+        Matcher inventoryHotbarMatcher = PLAYERS_INVENTORY_HOTBAR.matcher(path);
+        if (inventoryHotbarMatcher.matches() && method == HttpMethod.GET) {
+            return playerInventoryHandler.handleHotbar(request, identity, inventoryHotbarMatcher.group(1));
+        }
+
+        Matcher inventoryArmorMatcher = PLAYERS_INVENTORY_ARMOR.matcher(path);
+        if (inventoryArmorMatcher.matches() && method == HttpMethod.GET) {
+            return playerInventoryHandler.handleArmor(request, identity, inventoryArmorMatcher.group(1));
+        }
+
+        Matcher inventoryStorageMatcher = PLAYERS_INVENTORY_STORAGE.matcher(path);
+        if (inventoryStorageMatcher.matches() && method == HttpMethod.GET) {
+            return playerInventoryHandler.handleStorage(request, identity, inventoryStorageMatcher.group(1));
+        }
+
+        Matcher inventoryGiveMatcher = PLAYERS_INVENTORY_GIVE.matcher(path);
+        if (inventoryGiveMatcher.matches() && method == HttpMethod.POST) {
+            return playerInventoryHandler.handleGiveItem(request, identity, inventoryGiveMatcher.group(1));
+        }
+
+        Matcher inventoryClearMatcher = PLAYERS_INVENTORY_CLEAR.matcher(path);
+        if (inventoryClearMatcher.matches() && method == HttpMethod.POST) {
+            return playerInventoryHandler.handleClearInventory(request, identity, inventoryClearMatcher.group(1));
+        }
+
+        Matcher inventoryMatcher = PLAYERS_INVENTORY.matcher(path);
+        if (inventoryMatcher.matches() && method == HttpMethod.GET) {
+            return playerInventoryHandler.handleFullInventory(request, identity, inventoryMatcher.group(1));
+        }
+
+        // Player stats
+        Matcher playerStatsMatcher = PLAYERS_STATS.matcher(path);
+        if (playerStatsMatcher.matches() && method == HttpMethod.GET) {
+            return playerExtendedHandler.handleStats(request, identity, playerStatsMatcher.group(1));
+        }
+
+        // Player location
+        Matcher playerLocationMatcher = PLAYERS_LOCATION.matcher(path);
+        if (playerLocationMatcher.matches() && method == HttpMethod.GET) {
+            return playerExtendedHandler.handleLocation(request, identity, playerLocationMatcher.group(1));
+        }
+
+        // Player teleport
+        Matcher playerTeleportMatcher = PLAYERS_TELEPORT.matcher(path);
+        if (playerTeleportMatcher.matches() && method == HttpMethod.POST) {
+            return playerExtendedHandler.handleTeleport(request, identity, playerTeleportMatcher.group(1));
+        }
+
+        // Player game mode
+        Matcher playerGameModeMatcher = PLAYERS_GAMEMODE.matcher(path);
+        if (playerGameModeMatcher.matches()) {
+            String uuid = playerGameModeMatcher.group(1);
+            if (method == HttpMethod.GET) {
+                return playerExtendedHandler.handleGetGameMode(request, identity, uuid);
+            } else if (method == HttpMethod.POST) {
+                return playerExtendedHandler.handleSetGameMode(request, identity, uuid);
+            }
+        }
+
+        // Player permissions - revoke first (more specific)
+        Matcher playerPermRevokeMatcher = PLAYERS_PERMISSIONS_REVOKE.matcher(path);
+        if (playerPermRevokeMatcher.matches() && method == HttpMethod.DELETE) {
+            return playerExtendedHandler.handleRevokePermission(request, identity,
+                    playerPermRevokeMatcher.group(1), playerPermRevokeMatcher.group(2));
+        }
+
+        // Player permissions - list/grant
+        Matcher playerPermsMatcher = PLAYERS_PERMISSIONS.matcher(path);
+        if (playerPermsMatcher.matches()) {
+            String uuid = playerPermsMatcher.group(1);
+            if (method == HttpMethod.GET) {
+                return playerExtendedHandler.handleGetPermissions(request, identity, uuid);
+            } else if (method == HttpMethod.POST) {
+                return playerExtendedHandler.handleGrantPermission(request, identity, uuid);
+            }
+        }
+
+        // Player groups
+        Matcher playerGroupsMatcher = PLAYERS_GROUPS.matcher(path);
+        if (playerGroupsMatcher.matches()) {
+            String uuid = playerGroupsMatcher.group(1);
+            if (method == HttpMethod.GET) {
+                return playerExtendedHandler.handleGetGroups(request, identity, uuid);
+            } else if (method == HttpMethod.POST) {
+                return playerExtendedHandler.handleAddToGroup(request, identity, uuid);
+            }
+        }
+
+        // Player message
+        Matcher playerMessageMatcher = PLAYERS_MESSAGE.matcher(path);
+        if (playerMessageMatcher.matches() && method == HttpMethod.POST) {
+            return playerExtendedHandler.handleSendMessage(request, identity, playerMessageMatcher.group(1));
+        }
+
+        // Player detail (must come after more specific player routes)
         Matcher playerMatcher = PLAYERS_DETAIL.matcher(path);
         if (playerMatcher.matches() && method == HttpMethod.GET) {
             return playersHandler.handleDetail(request, identity, playerMatcher.group(1));
         }
 
-        // Worlds
+        // Worlds list
         if (path.equals("/worlds") && method == HttpMethod.GET) {
             return worldsHandler.handleList(request, identity);
+        }
+
+        // World time
+        Matcher worldTimeMatcher = WORLDS_TIME.matcher(path);
+        if (worldTimeMatcher.matches()) {
+            String worldId = worldTimeMatcher.group(1);
+            if (method == HttpMethod.GET) {
+                return worldExtendedHandler.handleGetTime(request, identity, worldId);
+            } else if (method == HttpMethod.POST) {
+                return worldExtendedHandler.handleSetTime(request, identity, worldId);
+            }
+        }
+
+        // World weather
+        Matcher worldWeatherMatcher = WORLDS_WEATHER.matcher(path);
+        if (worldWeatherMatcher.matches()) {
+            String worldId = worldWeatherMatcher.group(1);
+            if (method == HttpMethod.GET) {
+                return worldExtendedHandler.handleGetWeather(request, identity, worldId);
+            } else if (method == HttpMethod.POST) {
+                return worldExtendedHandler.handleSetWeather(request, identity, worldId);
+            }
+        }
+
+        // World entities
+        Matcher worldEntitiesMatcher = WORLDS_ENTITIES.matcher(path);
+        if (worldEntitiesMatcher.matches() && method == HttpMethod.GET) {
+            return worldExtendedHandler.handleListEntities(request, identity, worldEntitiesMatcher.group(1));
+        }
+
+        // World block
+        Matcher worldBlockMatcher = WORLDS_BLOCK.matcher(path);
+        if (worldBlockMatcher.matches()) {
+            String worldId = worldBlockMatcher.group(1);
+            int x = Integer.parseInt(worldBlockMatcher.group(2));
+            int y = Integer.parseInt(worldBlockMatcher.group(3));
+            int z = Integer.parseInt(worldBlockMatcher.group(4));
+            if (method == HttpMethod.GET) {
+                return worldExtendedHandler.handleGetBlock(request, identity, worldId, x, y, z);
+            } else if (method == HttpMethod.POST) {
+                return worldExtendedHandler.handleSetBlock(request, identity, worldId, x, y, z);
+            }
         }
 
         // World stats - must come before worlds detail to avoid conflict
@@ -138,9 +342,16 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
             return statsHandler.handleWorldStats(request, identity, worldStatsMatcher.group(1));
         }
 
+        // World detail (must come after more specific world routes)
         Matcher worldMatcher = WORLDS_DETAIL.matcher(path);
         if (worldMatcher.matches() && method == HttpMethod.GET) {
             return worldsHandler.handleDetail(request, identity, worldMatcher.group(1));
+        }
+
+        // Chat mute
+        Matcher chatMuteMatcher = CHAT_MUTE.matcher(path);
+        if (chatMuteMatcher.matches() && method == HttpMethod.POST) {
+            return chatHandler.handleMute(request, identity, chatMuteMatcher.group(1));
         }
 
         // Admin endpoints
