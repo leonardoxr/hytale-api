@@ -100,6 +100,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MetricsResponse'
+        '501':
+          $ref: '#/components/responses/NotImplemented'
 
   /server/plugins:
     get:
@@ -130,6 +132,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WhitelistResponse'
+        '501':
+          $ref: '#/components/responses/NotImplemented'
 
   /server/save:
     post:
@@ -142,6 +146,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+        '501':
+          $ref: '#/components/responses/NotImplemented'
 
   # ==================== Player Endpoints ====================
   /players:
@@ -760,6 +766,13 @@ components:
 
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotImplemented:
+      description: Endpoint not yet implemented
       content:
         application/json:
           schema:

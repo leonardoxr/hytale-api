@@ -12,6 +12,7 @@ public sealed abstract class ApiException extends RuntimeException
                 ApiException.Unauthorized,
                 ApiException.Forbidden,
                 ApiException.NotFound,
+                ApiException.NotImplemented,
                 ApiException.RateLimited,
                 ApiException.InternalError {
 
@@ -197,6 +198,29 @@ public sealed abstract class ApiException extends RuntimeException
 
         public static NotFound inventorySlot(int slot) {
             return new NotFound("SLOT_NOT_FOUND", "Inventory slot not found: " + slot);
+        }
+    }
+
+    /**
+     * 501 Not Implemented - Endpoint exists but functionality is not yet available.
+     */
+    public static final class NotImplemented extends ApiException {
+        public NotImplemented(String message) {
+            super(HttpResponseStatus.NOT_IMPLEMENTED, "NOT_IMPLEMENTED", message);
+        }
+
+        public NotImplemented(String errorCode, String message) {
+            super(HttpResponseStatus.NOT_IMPLEMENTED, errorCode, message);
+        }
+
+        public static NotImplemented endpoint(String endpoint) {
+            return new NotImplemented("ENDPOINT_NOT_IMPLEMENTED",
+                    "Endpoint not yet implemented: " + endpoint);
+        }
+
+        public static NotImplemented feature(String feature) {
+            return new NotImplemented("FEATURE_NOT_IMPLEMENTED",
+                    "Feature not yet implemented: " + feature);
         }
     }
 
