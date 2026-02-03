@@ -16,6 +16,18 @@ import io.netty.handler.codec.http.FullHttpRequest;
 public final class VersionHandler {
     private static final Gson GSON = new Gson();
     private static final String PLUGIN_VERSION = "1.0.0";
+    
+    /**
+     * Try to get PROTOCOL_HASH via reflection, as it may not exist in all versions.
+     */
+    private static String getProtocolHash() {
+        try {
+            var field = ProtocolSettings.class.getField("PROTOCOL_HASH");
+            return (String) field.get(null);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            return "unknown";
+        }
+    }
 
     /**
      * Handle GET /server/version request.
@@ -30,12 +42,15 @@ public final class VersionHandler {
         String revisionId = ManifestUtil.getImplementationRevisionId();
         String patchline = ManifestUtil.getPatchline();
 
+        // PROTOCOL_HASH constant may not exist in all Hytale versions
+        String protocolHash = getProtocolHash();
+        
         VersionResponse response = new VersionResponse(
                 gameVersion != null ? gameVersion : "unknown",
                 revisionId != null ? revisionId : "unknown",
                 patchline != null ? patchline : "unknown",
                 ProtocolSettings.PROTOCOL_VERSION,
-                ProtocolSettings.PROTOCOL_HASH,
+                protocolHash,
                 PLUGIN_VERSION
         );
 
