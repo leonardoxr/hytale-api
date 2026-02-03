@@ -6,10 +6,13 @@ import com.hytale.api.dto.response.ApiResponses.*;
 import com.hytale.api.exception.ApiException;
 import com.hytale.api.security.ApiPermissions;
 import com.hytale.api.security.ClientIdentity;
+import com.hypixel.hytale.math.vector.Transform;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.modules.entity.teleport.Teleport;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
-import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import io.netty.handler.codec.http.FullHttpRequest;
 
@@ -25,6 +28,14 @@ import java.util.logging.Logger;
 public final class PlayerExtendedHandler {
     private static final Logger LOGGER = Logger.getLogger(PlayerExtendedHandler.class.getName());
     private static final Gson GSON = new Gson();
+
+    private final PermissionsHandler permissionsHandler;
+    private final AdminHandler adminHandler;
+
+    public PlayerExtendedHandler(PermissionsHandler permissionsHandler, AdminHandler adminHandler) {
+        this.permissionsHandler = permissionsHandler;
+        this.adminHandler = adminHandler;
+    }
 
     /**
      * Handle GET /players/{uuid}/stats request.
@@ -113,13 +124,55 @@ public final class PlayerExtendedHandler {
             targetWorld = universe.getWorld(playerRef.getWorldUuid());
         }
 
-        // TODO: Implement actual teleportation via server API
-        // This would involve updating the player's transform component
-
         String worldName = targetWorld != null ? targetWorld.getName() : "unknown";
         double x = teleportRequest.x() != null ? teleportRequest.x() : 0;
         double y = teleportRequest.y() != null ? teleportRequest.y() : 0;
         double z = teleportRequest.z() != null ? teleportRequest.z() : 0;
+
+        // Create target position
+        Vector3d targetPosition = new Vector3d(x, y, z);
+
+        // Determine if this is a cross-world teleport
+        World currentWorld = universe.getWorld(playerRef.getWorldUuid());
+        boolean crossWorldTeleport = targetWorld != null && currentWorld != null &&
+                !targetWorld.getName().equals(currentWorld.getName());
+
+        // Capture final references for lambda
+        final World finalTargetWorld = targetWorld;
+        final PlayerRef finalPlayerRef = playerRef;
+
+        if (crossWorldTeleport) {
+            // Cross-world teleport: add player to target world at specified position
+            Transform newTransform = new Transform(x, y, z);
+            finalTargetWorld.addPlayer(finalPlayerRef, newTransform)
+                    .exceptionally(ex -> {
+                        LOGGER.warning("Cross-world teleport failed: " + ex.getMessage());
+                        return null;
+                    });
+        } else {
+            // Same-world teleport: use the Teleport component via Store
+            var playerReference = playerRef.getReference();
+            if (playerReference == null) {
+                throw new ApiException.InternalError("Player reference is null");
+            }
+
+            // Get current rotation to preserve it
+            var currentRotation = playerRef.getTransform().getRotation();
+
+            // Execute on world thread - Store.putComponent requires it
+            finalTargetWorld.execute(() -> {
+                playerReference.getStore().putComponent(
+                        playerReference,
+                        Teleport.getComponentType(),
+                        new Teleport(
+                                finalTargetWorld,
+                                targetPosition,
+                                currentRotation
+                        )
+                );
+                LOGGER.info("Teleport component added via store on world thread");
+            });
+        }
 
         LOGGER.info("Teleported %s to %.2f, %.2f, %.2f in %s (by %s)".formatted(
                 playerRef.getUsername(), x, y, z, worldName, identity.clientId()
