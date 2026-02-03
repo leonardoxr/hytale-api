@@ -22,6 +22,8 @@ public final class ApiPermissions {
     public static final String SERVER_PLUGINS_READ = "api.server.plugins.read";
     public static final String SERVER_WHITELIST_WRITE = "api.server.whitelist.write";
     public static final String SERVER_SAVE = "api.server.save";
+    public static final String SERVER_PERMISSIONS_READ = "api.server.permissions.read";
+    public static final String SERVER_PERMISSIONS_WRITE = "api.server.permissions.write";
 
     // Player Management
     public static final String PLAYERS_READ = "api.players.read";
