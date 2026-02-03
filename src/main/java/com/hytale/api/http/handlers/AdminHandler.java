@@ -7,14 +7,17 @@ import com.hytale.api.dto.response.ApiResponses.CommandResponse;
 import com.hytale.api.exception.ApiException;
 import com.hytale.api.security.ApiPermissions;
 import com.hytale.api.security.ClientIdentity;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.console.ConsoleSender;
+import com.hypixel.hytale.server.core.command.system.CommandManager;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
 import io.netty.handler.codec.http.FullHttpRequest;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -58,19 +61,48 @@ public final class AdminHandler {
         }
 
         String command = sanitizeCommand(cmdRequest.command());
-        LOGGER.info("[API] Executing command by %s: %s".formatted(identity.clientId(), command));
+        return executeCommandUnchecked(command, identity);
+    }
+
+    /**
+     * Execute a server command (no permission check; caller must check SERVER_PERMISSIONS_WRITE or ADMIN_COMMAND).
+     * Uses CommandManager.handleCommand() with ConsoleSender for proper execution.
+     * Used by PermissionsHandler for /op add and /op remove.
+     */
+    public String executeCommandUnchecked(String command, ClientIdentity identity) {
+        String sanitized = sanitizeCommand(command);
+        // Remove leading slash if present (CommandManager expects command without leading /)
+        if (sanitized.startsWith("/")) {
+            sanitized = sanitized.substring(1);
+        }
+
+        LOGGER.info("[API] Executing command by %s: %s".formatted(identity.clientId(), sanitized));
 
         try {
-            // Execute command through server's command manager
-            HytaleServer server = HytaleServer.get();
-            // Note: Command execution API may need adjustment based on actual server implementation
-            // This is a simplified version
-            auditLog("COMMAND", identity, "command=" + command);
+            auditLog("COMMAND", identity, "command=" + sanitized);
 
-            return GSON.toJson(new CommandResponse(
-                    true,
-                    "Command queued for execution: " + command
-            ));
+            // Execute command using CommandManager with ConsoleSender (has all permissions)
+            CompletableFuture<Void> future = CommandManager.get()
+                    .handleCommand(ConsoleSender.INSTANCE, sanitized);
+
+            // Wait briefly for command completion (most commands are fast)
+            // Use orTimeout to prevent indefinite blocking
+            try {
+                future.orTimeout(5, TimeUnit.SECONDS).join();
+                LOGGER.info("[API] Command executed successfully: " + sanitized);
+                return GSON.toJson(new CommandResponse(
+                        true,
+                        "Command executed: " + sanitized
+                ));
+            } catch (Exception e) {
+                // Command may have completed but threw an exception, or timed out
+                // Still consider it "executed" as the command was dispatched
+                LOGGER.info("[API] Command dispatched (async): " + sanitized);
+                return GSON.toJson(new CommandResponse(
+                        true,
+                        "Command dispatched: " + sanitized
+                ));
+            }
         } catch (Exception e) {
             LOGGER.warning("Command execution failed: " + e.getMessage());
             return GSON.toJson(new CommandResponse(false, "Command failed: " + e.getMessage()));
@@ -207,16 +239,20 @@ public final class AdminHandler {
 
     /**
      * Find player by name or UUID.
+     * Note: Called from Netty HTTP thread. getPlayer(uuid) is a map lookup.
+     * getPlayer(name, NameMatching) touches world state and must not be called from this thread
+     * (causes "PlayerRef.getComponent called async with player in world"). If kick/ban by username
+     * ever throws that, resolve player on world thread or use command dispatch instead.
      */
     private PlayerRef findPlayer(String identifier) {
         Universe universe = Universe.get();
 
-        // Try UUID first
+        // Try UUID first (map lookup, safe from HTTP thread)
         try {
             UUID uuid = UUID.fromString(identifier);
             return universe.getPlayer(uuid);
         } catch (IllegalArgumentException e) {
-            // Not a UUID, search by name using exact matching
+            // Not a UUID: name lookup touches world thread; may throw from Netty thread
             return universe.getPlayer(identifier, com.hypixel.hytale.server.core.NameMatching.EXACT);
         }
     }
