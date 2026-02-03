@@ -6,10 +6,13 @@ import com.hytale.api.dto.response.ApiResponses.*;
 import com.hytale.api.exception.ApiException;
 import com.hytale.api.security.ApiPermissions;
 import com.hytale.api.security.ClientIdentity;
+import com.hypixel.hytale.math.vector.Transform;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.modules.entity.teleport.Teleport;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
-import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import io.netty.handler.codec.http.FullHttpRequest;
 
@@ -25,6 +28,14 @@ import java.util.logging.Logger;
 public final class PlayerExtendedHandler {
     private static final Logger LOGGER = Logger.getLogger(PlayerExtendedHandler.class.getName());
     private static final Gson GSON = new Gson();
+
+    private final PermissionsHandler permissionsHandler;
+    private final AdminHandler adminHandler;
+
+    public PlayerExtendedHandler(PermissionsHandler permissionsHandler, AdminHandler adminHandler) {
+        this.permissionsHandler = permissionsHandler;
+        this.adminHandler = adminHandler;
+    }
 
     /**
      * Handle GET /players/{uuid}/stats request.
@@ -113,13 +124,55 @@ public final class PlayerExtendedHandler {
             targetWorld = universe.getWorld(playerRef.getWorldUuid());
         }
 
-        // TODO: Implement actual teleportation via server API
-        // This would involve updating the player's transform component
-
         String worldName = targetWorld != null ? targetWorld.getName() : "unknown";
         double x = teleportRequest.x() != null ? teleportRequest.x() : 0;
         double y = teleportRequest.y() != null ? teleportRequest.y() : 0;
         double z = teleportRequest.z() != null ? teleportRequest.z() : 0;
+
+        // Create target position
+        Vector3d targetPosition = new Vector3d(x, y, z);
+
+        // Determine if this is a cross-world teleport
+        World currentWorld = universe.getWorld(playerRef.getWorldUuid());
+        boolean crossWorldTeleport = targetWorld != null && currentWorld != null &&
+                !targetWorld.getName().equals(currentWorld.getName());
+
+        // Capture final references for lambda
+        final World finalTargetWorld = targetWorld;
+        final PlayerRef finalPlayerRef = playerRef;
+
+        if (crossWorldTeleport) {
+            // Cross-world teleport: add player to target world at specified position
+            Transform newTransform = new Transform(x, y, z);
+            finalTargetWorld.addPlayer(finalPlayerRef, newTransform)
+                    .exceptionally(ex -> {
+                        LOGGER.warning("Cross-world teleport failed: " + ex.getMessage());
+                        return null;
+                    });
+        } else {
+            // Same-world teleport: use the Teleport component via Store
+            var playerReference = playerRef.getReference();
+            if (playerReference == null) {
+                throw new ApiException.InternalError("Player reference is null");
+            }
+
+            // Get current rotation to preserve it
+            var currentRotation = playerRef.getTransform().getRotation();
+
+            // Execute on world thread - Store.putComponent requires it
+            finalTargetWorld.execute(() -> {
+                playerReference.getStore().putComponent(
+                        playerReference,
+                        Teleport.getComponentType(),
+                        new Teleport(
+                                finalTargetWorld,
+                                targetPosition,
+                                currentRotation
+                        )
+                );
+                LOGGER.info("Teleport component added via store on world thread");
+            });
+        }
 
         LOGGER.info("Teleported %s to %.2f, %.2f, %.2f in %s (by %s)".formatted(
                 playerRef.getUsername(), x, y, z, worldName, identity.clientId()
@@ -203,17 +256,13 @@ public final class PlayerExtendedHandler {
             throw ApiException.Forbidden.insufficientPermissions(ApiPermissions.PLAYERS_PERMISSIONS_READ);
         }
 
-        PlayerRef playerRef = getPlayerRef(uuidString);
+        UUID uuid = parseUuid(uuidString);
+        String name = resolvePlayerName(uuid);
+        var data = permissionsHandler.getPermissionsData();
+        var userEntry = data.users().get(uuidString);
+        List<String> permissions = userEntry != null && userEntry.permissions() != null ? userEntry.permissions() : List.of();
 
-        // TODO: Get actual permissions from PermissionHolder
-        List<String> permissions = new ArrayList<>();
-
-        PermissionsResponse response = new PermissionsResponse(
-                playerRef.getUuid(),
-                playerRef.getUsername(),
-                permissions
-        );
-
+        PermissionsResponse response = new PermissionsResponse(uuid, name, permissions);
         return GSON.toJson(response);
     }
 
@@ -232,17 +281,19 @@ public final class PlayerExtendedHandler {
             throw ApiException.BadRequest.missingField("permission");
         }
 
-        PlayerRef playerRef = getPlayerRef(uuidString);
+        parseUuid(uuidString);
+        String name = resolvePlayerName(UUID.fromString(uuidString));
+        var data = permissionsHandler.getPermissionsData();
+        var userEntry = data.users().get(uuidString);
+        List<String> groups = userEntry != null && userEntry.groups() != null ? new ArrayList<>(userEntry.groups()) : new ArrayList<>();
+        List<String> perms = userEntry != null && userEntry.permissions() != null ? new ArrayList<>(userEntry.permissions()) : new ArrayList<>();
+        if (!perms.contains(permRequest.permission())) {
+            perms.add(permRequest.permission());
+        }
+        permissionsHandler.updateUser(uuidString, new PermissionsDataResponse.UserEntry(groups, perms));
 
-        // TODO: Grant permission via PermissionHolder
-
-        LOGGER.info("Granted permission '%s' to %s (by %s)".formatted(
-                permRequest.permission(), playerRef.getUsername(), identity.clientId()
-        ));
-
-        return GSON.toJson(SuccessResponse.ok("Granted permission '%s' to %s".formatted(
-                permRequest.permission(), playerRef.getUsername()
-        )));
+        LOGGER.info("Granted permission '%s' to %s (by %s)".formatted(permRequest.permission(), name, identity.clientId()));
+        return GSON.toJson(SuccessResponse.ok("Granted permission '%s' to %s".formatted(permRequest.permission(), name)));
     }
 
     /**
@@ -257,17 +308,17 @@ public final class PlayerExtendedHandler {
             throw ApiException.BadRequest.missingField("permission");
         }
 
-        PlayerRef playerRef = getPlayerRef(uuidString);
+        parseUuid(uuidString);
+        String name = resolvePlayerName(UUID.fromString(uuidString));
+        var data = permissionsHandler.getPermissionsData();
+        var userEntry = data.users().get(uuidString);
+        List<String> groups = userEntry != null && userEntry.groups() != null ? new ArrayList<>(userEntry.groups()) : new ArrayList<>();
+        List<String> perms = userEntry != null && userEntry.permissions() != null ? new ArrayList<>(userEntry.permissions()) : new ArrayList<>();
+        perms.remove(permission);
+        permissionsHandler.updateUser(uuidString, new PermissionsDataResponse.UserEntry(groups, perms));
 
-        // TODO: Revoke permission via PermissionHolder
-
-        LOGGER.info("Revoked permission '%s' from %s (by %s)".formatted(
-                permission, playerRef.getUsername(), identity.clientId()
-        ));
-
-        return GSON.toJson(SuccessResponse.ok("Revoked permission '%s' from %s".formatted(
-                permission, playerRef.getUsername()
-        )));
+        LOGGER.info("Revoked permission '%s' from %s (by %s)".formatted(permission, name, identity.clientId()));
+        return GSON.toJson(SuccessResponse.ok("Revoked permission '%s' from %s".formatted(permission, name)));
     }
 
     /**
@@ -278,17 +329,13 @@ public final class PlayerExtendedHandler {
             throw ApiException.Forbidden.insufficientPermissions(ApiPermissions.PLAYERS_GROUPS_READ);
         }
 
-        PlayerRef playerRef = getPlayerRef(uuidString);
+        UUID uuid = parseUuid(uuidString);
+        String name = resolvePlayerName(uuid);
+        var data = permissionsHandler.getPermissionsData();
+        var userEntry = data.users().get(uuidString);
+        List<String> groups = userEntry != null && userEntry.groups() != null ? userEntry.groups() : List.of();
 
-        // TODO: Get actual groups from PermissionHolder
-        List<String> groups = new ArrayList<>();
-
-        GroupsResponse response = new GroupsResponse(
-                playerRef.getUuid(),
-                playerRef.getUsername(),
-                groups
-        );
-
+        GroupsResponse response = new GroupsResponse(uuid, name, groups);
         return GSON.toJson(response);
     }
 
@@ -307,17 +354,26 @@ public final class PlayerExtendedHandler {
             throw ApiException.BadRequest.missingField("group");
         }
 
-        PlayerRef playerRef = getPlayerRef(uuidString);
+        String group = groupRequest.group().trim();
+        String name = resolvePlayerName(UUID.fromString(uuidString));
 
-        // TODO: Add to group via PermissionHolder
+        if (group.equalsIgnoreCase("op")) {
+            String command = "/op add " + uuidString;
+            return adminHandler.executeCommandUnchecked(command, identity);
+        }
 
-        LOGGER.info("Added %s to group '%s' (by %s)".formatted(
-                playerRef.getUsername(), groupRequest.group(), identity.clientId()
-        ));
+        parseUuid(uuidString);
+        var data = permissionsHandler.getPermissionsData();
+        var userEntry = data.users().get(uuidString);
+        List<String> groups = userEntry != null && userEntry.groups() != null ? new ArrayList<>(userEntry.groups()) : new ArrayList<>();
+        List<String> perms = userEntry != null && userEntry.permissions() != null ? new ArrayList<>(userEntry.permissions()) : new ArrayList<>();
+        if (!groups.contains(group)) {
+            groups.add(group);
+        }
+        permissionsHandler.updateUser(uuidString, new PermissionsDataResponse.UserEntry(groups, perms));
 
-        return GSON.toJson(SuccessResponse.ok("Added %s to group '%s'".formatted(
-                playerRef.getUsername(), groupRequest.group()
-        )));
+        LOGGER.info("Added %s to group '%s' (by %s)".formatted(name, group, identity.clientId()));
+        return GSON.toJson(SuccessResponse.ok("Added %s to group '%s'".formatted(name, group)));
     }
 
     /**
@@ -351,14 +407,22 @@ public final class PlayerExtendedHandler {
 
     // Helper methods
 
-    private PlayerRef getPlayerRef(String uuidString) {
-        UUID uuid;
+    private UUID parseUuid(String uuidString) {
         try {
-            uuid = UUID.fromString(uuidString);
+            return UUID.fromString(uuidString);
         } catch (IllegalArgumentException e) {
             throw ApiException.BadRequest.invalidField("uuid", "Invalid UUID format");
         }
+    }
 
+    private String resolvePlayerName(UUID uuid) {
+        Universe universe = Universe.get();
+        PlayerRef ref = universe.getPlayer(uuid);
+        return ref != null ? ref.getUsername() : uuid.toString();
+    }
+
+    private PlayerRef getPlayerRef(String uuidString) {
+        UUID uuid = parseUuid(uuidString);
         Universe universe = Universe.get();
         PlayerRef playerRef = universe.getPlayer(uuid);
 

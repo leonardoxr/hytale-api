@@ -61,6 +61,13 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
     // Chat pattern
     private static final Pattern CHAT_MUTE = Pattern.compile("^/chat/mute/([a-fA-F0-9-]+)$");
 
+    // Permissions patterns
+    private static final Pattern SERVER_PERMISSIONS = Pattern.compile("^/server/permissions$");
+    private static final Pattern SERVER_PERMISSIONS_GROUPS = Pattern.compile("^/server/permissions/groups$");
+    private static final Pattern SERVER_PERMISSIONS_GROUPS_NAME = Pattern.compile("^/server/permissions/groups/([^/]+)$");
+    private static final Pattern SERVER_PERMISSIONS_OP = Pattern.compile("^/server/permissions/op$");
+    private static final Pattern SERVER_PERMISSIONS_OP_PLAYER = Pattern.compile("^/server/permissions/op/(.+)$");
+
     private final ApiConfig config;
     private final TokenGenerator tokenGenerator;
 
@@ -80,8 +87,9 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
     private final WorldExtendedHandler worldExtendedHandler;
     private final ServerExtendedHandler serverExtendedHandler;
     private final ChatHandler chatHandler;
+    private final PermissionsHandler permissionsHandler;
 
-    public HttpRequestRouter(ApiConfig config, TokenGenerator tokenGenerator) {
+    public HttpRequestRouter(ApiConfig config, TokenGenerator tokenGenerator, java.nio.file.Path serverRoot) {
         this.config = config;
         this.tokenGenerator = tokenGenerator;
 
@@ -97,10 +105,11 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
         // Initialize extended handlers
         this.versionHandler = new VersionHandler();
         this.playerInventoryHandler = new PlayerInventoryHandler();
-        this.playerExtendedHandler = new PlayerExtendedHandler();
         this.worldExtendedHandler = new WorldExtendedHandler();
         this.serverExtendedHandler = new ServerExtendedHandler();
         this.chatHandler = new ChatHandler();
+        this.permissionsHandler = new PermissionsHandler(serverRoot, adminHandler);
+        this.playerExtendedHandler = new PlayerExtendedHandler(permissionsHandler, adminHandler);
     }
 
     @Override
@@ -181,6 +190,40 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
         // Server save
         if (path.equals("/server/save") && method == HttpMethod.POST) {
             return serverExtendedHandler.handleSave(request, identity);
+        }
+
+        // Server permissions - more specific patterns first
+        Matcher permGroupsNameMatcher = SERVER_PERMISSIONS_GROUPS_NAME.matcher(path);
+        if (permGroupsNameMatcher.matches()) {
+            String groupName = permGroupsNameMatcher.group(1);
+            if (method == HttpMethod.PUT) {
+                return permissionsHandler.handleUpdateGroup(request, identity, groupName);
+            }
+            if (method == HttpMethod.DELETE) {
+                return permissionsHandler.handleDeleteGroup(request, identity, groupName);
+            }
+        }
+
+        Matcher permOpPlayerMatcher = SERVER_PERMISSIONS_OP_PLAYER.matcher(path);
+        if (permOpPlayerMatcher.matches() && method == HttpMethod.DELETE) {
+            return permissionsHandler.handleRemoveOp(request, identity, permOpPlayerMatcher.group(1));
+        }
+
+        if (path.equals("/server/permissions") && method == HttpMethod.GET) {
+            return permissionsHandler.handleGetPermissions(request, identity);
+        }
+
+        if (path.equals("/server/permissions/groups")) {
+            if (method == HttpMethod.GET) {
+                return permissionsHandler.handleGetGroups(request, identity);
+            }
+            if (method == HttpMethod.POST) {
+                return permissionsHandler.handleCreateGroup(request, identity);
+            }
+        }
+
+        if (path.equals("/server/permissions/op") && method == HttpMethod.POST) {
+            return permissionsHandler.handleAddOp(request, identity);
         }
 
         // Players list

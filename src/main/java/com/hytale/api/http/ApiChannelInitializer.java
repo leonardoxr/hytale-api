@@ -75,8 +75,12 @@ public final class ApiChannelInitializer extends ChannelInitializer<SocketChanne
         // Initialize WebSocket manager
         this.wsSessionManager = new WebSocketSessionManager(config.websocket());
 
-        // Initialize routers (sharable)
-        this.httpRouter = new HttpRequestRouter(config, tokenGenerator);
+        // Initialize routers (sharable) - server root is parent of mods folder
+        // Must use toAbsolutePath() first to normalize the path before getting parents
+        Path absolutePluginPath = pluginDataPath.toAbsolutePath();
+        Path modsFolder = absolutePluginPath.getParent();
+        Path serverRoot = modsFolder != null ? modsFolder.getParent() : absolutePluginPath;
+        this.httpRouter = new HttpRequestRouter(config, tokenGenerator, serverRoot);
         this.webSocketHandler = new WebSocketHandler(config, tokenGenerator, wsSessionManager);
     }
 

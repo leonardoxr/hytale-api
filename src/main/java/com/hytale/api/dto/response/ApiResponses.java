@@ -447,4 +447,21 @@ public final class ApiResponses {
             String reason,
             long expiresAt
     ) {}
+
+    /**
+     * Full permissions data (permissions.json structure).
+     */
+    public record PermissionsDataResponse(
+            Map<String, GroupEntry> groups,
+            Map<String, UserEntry> users
+    ) {
+        public record GroupEntry(List<String> permissions) {}
+
+        public record UserEntry(List<String> groups, List<String> permissions) {}
+    }
+
+    /**
+     * Single group response (name + permissions).
+     */
+    public record GroupResponse(String name, List<String> permissions) {}
 }
