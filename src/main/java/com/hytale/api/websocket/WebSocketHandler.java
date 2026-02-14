@@ -221,19 +221,32 @@ public final class WebSocketHandler extends SimpleChannelInboundHandler<TextWebS
 
     /**
      * Check if identity can subscribe to event type.
+     * Updated for SDK 2.0 with new event categories.
      */
     private boolean canSubscribe(ClientIdentity identity, String eventType) {
         // Map event types to permissions
         String requiredPermission = switch (eventType) {
-            case "player.join", "player.leave", "player.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_PLAYERS;
+            case "player.join", "player.leave", "player.connect", "player.world_change", "player.*" ->
+                    ApiPermissions.WEBSOCKET_SUBSCRIBE_PLAYERS;
             case "player.chat", "chat.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_CHAT;
+            case "player.interact" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_INTERACT;
+            case "player.permission", "player.group" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_PERMISSIONS;
             case "server.status", "server.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_STATUS;
             case "server.log", "server.logs", "logs.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_LOGS;
+            case "entity.death", "entity.damage", "death.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_DEATH;
+            case "block.break", "block.place", "block.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_BLOCKS;
+            case "inventory.change", "inventory.craft", "inventory.drop", "inventory.*" ->
+                    ApiPermissions.WEBSOCKET_SUBSCRIBE_INVENTORY;
+            case "world.zone_discovery", "zone.*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_ZONES;
             case "*" -> ApiPermissions.WEBSOCKET_SUBSCRIBE_ALL;
             default -> {
                 if (eventType.startsWith("player.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_PLAYERS;
                 if (eventType.startsWith("server.log")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_LOGS;
                 if (eventType.startsWith("server.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_STATUS;
+                if (eventType.startsWith("block.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_BLOCKS;
+                if (eventType.startsWith("inventory.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_INVENTORY;
+                if (eventType.startsWith("entity.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_ENTITIES;
+                if (eventType.startsWith("world.")) yield ApiPermissions.WEBSOCKET_SUBSCRIBE_ZONES;
                 yield ApiPermissions.WEBSOCKET_SUBSCRIBE_ALL;
             }
         };

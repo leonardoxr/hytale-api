@@ -1,8 +1,8 @@
 {
   "Group": "com.hytale",
   "Name": "HytaleAPI",
-  "Version": "1.0.0",
-  "Description": "Secure REST and WebSocket API for Hytale server management",
+  "Version": "2.0.0",
+  "Description": "REST & WebSocket API for Hytale server management with real-time event streaming, ECS integration, and comprehensive player/world/block APIs",
   "Authors": [
     {
       "Name": "HytaleAPI Team",
@@ -11,8 +11,12 @@
   ],
   "Website": "https://github.com/hytale/api",
   "Main": "com.hytale.api.ApiPlugin",
-  "ServerVersion": ">=0.0.0",
-  "Dependencies": {},
-  "OptionalDependencies": {},
-  "LoadBefore": {}
+  "ServerVersion": "*",
+  "Dependencies": {
+    "Hytale:DamageModule": "*"
+  },
+  "OptionalDependencies": {
+    "Hytale:FluidPlugin": "*"
+  },
+  "IncludesAssetPack": false
 }

@@ -15,7 +15,7 @@ import io.netty.handler.codec.http.FullHttpRequest;
  */
 public final class VersionHandler {
     private static final Gson GSON = new Gson();
-    private static final String PLUGIN_VERSION = "1.0.0";
+    private static final String PLUGIN_VERSION = "2.0.0";
 
     /**
      * Handle GET /server/version request.

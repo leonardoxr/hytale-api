@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'com.hytale'
-version = '1.0.0'
+version = '2.0.0'
 
 java {
     toolchain {
@@ -28,7 +28,7 @@ dependencies {
 
 jar {
     from('src/main/resources') {
-        include 'plugin.json'
+        include 'manifest.json'
     }
 
     manifest {

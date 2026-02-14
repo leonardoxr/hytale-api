@@ -3,6 +3,7 @@ package com.hytale.api.security;
 /**
  * Permission node constants for the API.
  * Follows hierarchical permission structure with wildcards.
+ * Updated for Hytale SDK 2.0 with new event types and endpoints.
  */
 public final class ApiPermissions {
     private ApiPermissions() {}
@@ -22,6 +23,8 @@ public final class ApiPermissions {
     public static final String SERVER_PLUGINS_READ = "api.server.plugins.read";
     public static final String SERVER_WHITELIST_WRITE = "api.server.whitelist.write";
     public static final String SERVER_SAVE = "api.server.save";
+    public static final String SERVER_TPS_READ = "api.server.tps.read";
+    public static final String SERVER_CONFIG_READ = "api.server.config.read";
 
     // Player Management
     public static final String PLAYERS_READ = "api.players.read";
@@ -39,6 +42,9 @@ public final class ApiPermissions {
     public static final String PLAYERS_GAMEMODE_READ = "api.players.gamemode.read";
     public static final String PLAYERS_GAMEMODE_WRITE = "api.players.gamemode.write";
     public static final String PLAYERS_MESSAGE = "api.players.message";
+    public static final String PLAYERS_HEAL = "api.players.heal";
+    public static final String PLAYERS_EFFECTS_READ = "api.players.effects.read";
+    public static final String PLAYERS_EFFECTS_WRITE = "api.players.effects.write";
 
     // Player Permissions
     public static final String PLAYERS_PERMISSIONS_READ = "api.players.permissions.read";
@@ -80,6 +86,11 @@ public final class ApiPermissions {
     public static final String WEBSOCKET_SUBSCRIBE_BLOCKS = "api.websocket.subscribe.blocks";
     public static final String WEBSOCKET_SUBSCRIBE_INVENTORY = "api.websocket.subscribe.inventory";
     public static final String WEBSOCKET_SUBSCRIBE_LOGS = "api.websocket.subscribe.logs";
+    public static final String WEBSOCKET_SUBSCRIBE_DEATH = "api.websocket.subscribe.death";
+    public static final String WEBSOCKET_SUBSCRIBE_INTERACT = "api.websocket.subscribe.interact";
+    public static final String WEBSOCKET_SUBSCRIBE_CRAFTING = "api.websocket.subscribe.crafting";
+    public static final String WEBSOCKET_SUBSCRIBE_PERMISSIONS = "api.websocket.subscribe.permissions";
+    public static final String WEBSOCKET_SUBSCRIBE_ZONES = "api.websocket.subscribe.zones";
     public static final String WEBSOCKET_SUBSCRIBE_ALL = "api.websocket.subscribe.*";
 
     /**

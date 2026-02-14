@@ -447,4 +447,44 @@ public final class ApiResponses {
             String reason,
             long expiresAt
     ) {}
+
+    /**
+     * Server TPS/tick performance response.
+     */
+    public record TpsResponse(
+            double currentTps,
+            double averageTps,
+            long tickTimeMs,
+            long averageTickTimeMs,
+            int targetTps
+    ) {}
+
+    /**
+     * Player effects response.
+     */
+    public record EffectsResponse(
+            UUID uuid,
+            String name,
+            List<EffectInfo> effects
+    ) {
+        public record EffectInfo(
+                String effectId,
+                String displayName,
+                int amplifier,
+                long remainingTicks,
+                boolean isPositive
+        ) {}
+    }
+
+    /**
+     * Player heal response.
+     */
+    public record HealResponse(
+            boolean success,
+            UUID uuid,
+            String name,
+            double previousHealth,
+            double currentHealth,
+            double maxHealth
+    ) {}
 }
