@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Hytale Server API
-  description: REST and WebSocket API for Hytale server management
-  version: 1.0.0
+  description: REST and WebSocket API for Hytale server management. Updated for Hytale SDK 2.0 with ECS events, block tracking, inventory changes, and 30+ WebSocket event types.
+  version: 2.0.0
 
 servers:
   - url: http://localhost:8080
@@ -148,6 +148,29 @@ paths:
                 $ref: '#/components/schemas/SuccessResponse'
         '501':
           $ref: '#/components/responses/NotImplemented'
+
+  /server/tps:
+    get:
+      summary: Get server TPS and tick performance
+      tags: [Server]
+      responses:
+        '200':
+          description: Server TPS information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currentTps:
+                    type: number
+                  averageTps:
+                    type: number
+                  tickTimeMs:
+                    type: integer
+                  averageTickTimeMs:
+                    type: integer
+                  targetTps:
+                    type: integer
 
   # ==================== Player Endpoints ====================
   /players:
@@ -356,6 +379,105 @@ paths:
       responses:
         '200':
           description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /players/{uuid}/heal:
+    post:
+      summary: Heal a player
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/PlayerUuid'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  description: Heal amount (null for full heal)
+      responses:
+        '200':
+          description: Player healed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  uuid:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  previousHealth:
+                    type: number
+                  currentHealth:
+                    type: number
+                  maxHealth:
+                    type: number
+
+  /players/{uuid}/effects:
+    get:
+      summary: Get player active effects
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/PlayerUuid'
+      responses:
+        '200':
+          description: Player effects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  effects:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        effectId:
+                          type: string
+                        displayName:
+                          type: string
+                        amplifier:
+                          type: integer
+                        remainingTicks:
+                          type: integer
+                        isPositive:
+                          type: boolean
+    post:
+      summary: Apply an effect to a player
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/PlayerUuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                effectId:
+                  type: string
+                amplifier:
+                  type: integer
+                durationTicks:
+                  type: integer
+              required:
+                - effectId
+      responses:
+        '200':
+          description: Effect applied
           content:
             application/json:
               schema:

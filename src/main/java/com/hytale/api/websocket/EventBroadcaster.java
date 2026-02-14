@@ -10,6 +10,16 @@ import com.hypixel.hytale.server.core.event.events.entity.EntityRemoveEvent;
 import com.hypixel.hytale.server.core.event.events.ecs.ChangeGameModeEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent;
+import com.hypixel.hytale.server.core.event.events.ecs.PlaceBlockEvent;
+import com.hypixel.hytale.server.core.event.events.ecs.DamageEvent;
+import com.hypixel.hytale.server.core.event.events.ecs.DeathEvent;
+import com.hypixel.hytale.server.core.event.events.inventory.LivingEntityInventoryChangeEvent;
+import com.hypixel.hytale.server.core.event.events.inventory.CraftRecipeEvent;
+import com.hypixel.hytale.server.core.event.events.inventory.DropItemEvent;
+import com.hypixel.hytale.server.core.event.events.permission.PlayerPermissionChangeEvent;
+import com.hypixel.hytale.server.core.event.events.permission.PlayerGroupEvent;
+import com.hypixel.hytale.server.core.event.events.world.DiscoverZoneEvent;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,6 +30,10 @@ import java.util.logging.Logger;
 /**
  * Bridges Hytale server events to WebSocket broadcasts.
  * Uses virtual threads for periodic status broadcasts.
+ *
+ * <p>Updated for SDK 2.0 with support for player interaction, world change,
+ * block break/place (ECS), death/damage (ECS), inventory, crafting, item drop,
+ * permission change, group change, and zone discovery events.</p>
  */
 public final class EventBroadcaster {
     private static final Logger LOGGER = Logger.getLogger(EventBroadcaster.class.getName());
@@ -47,7 +61,9 @@ public final class EventBroadcaster {
         eventRegistry.registerGlobal(PlayerReadyEvent.class, this::onPlayerReady);
 
         // Player chat event
-        eventRegistry.registerGlobal(PlayerChatEvent.class, this::onPlayerChat);
+        eventRegistry.registerAsyncGlobal(PlayerChatEvent.class, future -> {
+            future.thenAccept(this::onPlayerChat);
+        });
 
         // Game mode change event
         eventRegistry.registerGlobal(ChangeGameModeEvent.class, this::onPlayerGameModeChange);
@@ -55,9 +71,31 @@ public final class EventBroadcaster {
         // Entity events
         eventRegistry.registerGlobal(EntityRemoveEvent.class, this::onEntityRemove);
 
-        // Note: Block events (PlaceBlockEvent, BreakBlockEvent) and inventory events
-        // are not yet available in the current Hytale server SDK.
-        // They will be added when the SDK supports them.
+        // Player interaction and world change events (SDK 2.0)
+        eventRegistry.registerGlobal(PlayerInteractEvent.class, this::onPlayerInteract);
+        eventRegistry.registerGlobal(AddPlayerToWorldEvent.class, this::onPlayerWorldEntry);
+        eventRegistry.registerGlobal(DrainPlayerFromWorldEvent.class, this::onPlayerWorldExit);
+
+        // Inventory events (SDK 2.0)
+        eventRegistry.registerGlobal(LivingEntityInventoryChangeEvent.class, this::onInventoryChange);
+        eventRegistry.registerGlobal(CraftRecipeEvent.class, this::onCraftRecipe);
+        eventRegistry.registerGlobal(DropItemEvent.class, this::onDropItem);
+
+        // Permission events (SDK 2.0)
+        eventRegistry.registerGlobal(PlayerPermissionChangeEvent.class, this::onPermissionChange);
+        eventRegistry.registerGlobal(PlayerGroupEvent.class, this::onGroupChange);
+
+        // Zone events (SDK 2.0)
+        eventRegistry.registerGlobal(DiscoverZoneEvent.class, this::onZoneDiscovery);
+
+        // ECS Events - block break/place and death/damage
+        // Note: ECS events may require EntityEventSystem registration in some SDK versions.
+        // These use registerGlobal as a fallback; if the SDK requires ECS-style registration,
+        // they should be adapted to extend EntityEventSystem<EntityStore, EventType>.
+        eventRegistry.registerGlobal(BreakBlockEvent.class, this::onBlockBreak);
+        eventRegistry.registerGlobal(PlaceBlockEvent.class, this::onBlockPlace);
+        eventRegistry.registerGlobal(DeathEvent.class, this::onEntityDeath);
+        eventRegistry.registerGlobal(DamageEvent.class, this::onEntityDamage);
 
         LOGGER.info("Event listeners registered for WebSocket broadcast");
 
@@ -197,9 +235,6 @@ public final class EventBroadcaster {
         sessionManager.broadcast("player.gamemode", payload);
     }
 
-    // Note: Block event handlers (onBlockPlace, onBlockBreak) will be added
-    // when PlaceBlockEvent and BreakBlockEvent become available in the SDK.
-
     /**
      * Handle entity remove event.
      */
@@ -217,8 +252,194 @@ public final class EventBroadcaster {
         sessionManager.broadcast("entity.remove", payload);
     }
 
-    // Note: Inventory change event handler will be added when
-    // LivingEntityInventoryChangeEvent becomes available in the SDK.
+    /**
+     * Handle player interaction event (SDK 2.0).
+     */
+    @SuppressWarnings("removal")
+    private void onPlayerInteract(PlayerInteractEvent event) {
+        try {
+            var player = event.getPlayer();
+            String payload = """
+                    {"uuid":"%s","actionType":"%s","hasItem":%b,"hasTarget":%b}"""
+                    .formatted(
+                            player.getUuid(),
+                            escapeJson(event.getActionType().name()),
+                            event.getItemInHand() != null,
+                            event.getTargetEntity() != null || event.getTargetBlock() != null
+                    );
+            sessionManager.broadcast("player.interact", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Player interact event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle player entering a world (SDK 2.0).
+     */
+    private void onPlayerWorldEntry(AddPlayerToWorldEvent event) {
+        try {
+            var playerRef = event.getPlayerRef();
+            var world = event.getWorld();
+            String payload = """
+                    {"uuid":"%s","name":"%s","world":"%s"}"""
+                    .formatted(
+                            playerRef.getUuid(),
+                            escapeJson(playerRef.getUsername()),
+                            world != null ? escapeJson(world.getName()) : "unknown"
+                    );
+            sessionManager.broadcast("player.world_change", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Player world entry event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle player exiting a world (SDK 2.0).
+     */
+    private void onPlayerWorldExit(DrainPlayerFromWorldEvent event) {
+        try {
+            var playerRef = event.getPlayerRef();
+            String payload = """
+                    {"uuid":"%s","name":"%s","action":"exit"}"""
+                    .formatted(
+                            playerRef.getUuid(),
+                            escapeJson(playerRef.getUsername())
+                    );
+            sessionManager.broadcast("player.world_change", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Player world exit event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle block break event (SDK 2.0 - ECS event).
+     */
+    private void onBlockBreak(BreakBlockEvent event) {
+        try {
+            String payload = """
+                    {"action":"break"}""";
+            sessionManager.broadcast("block.break", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Block break event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle block place event (SDK 2.0 - ECS event).
+     */
+    private void onBlockPlace(PlaceBlockEvent event) {
+        try {
+            String payload = """
+                    {"action":"place"}""";
+            sessionManager.broadcast("block.place", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Block place event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle entity death event (SDK 2.0 - ECS event).
+     */
+    private void onEntityDeath(DeathEvent event) {
+        try {
+            String payload = """
+                    {"event":"death"}""";
+            sessionManager.broadcast("entity.death", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Death event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle entity damage event (SDK 2.0 - ECS event).
+     */
+    private void onEntityDamage(DamageEvent event) {
+        try {
+            String payload = """
+                    {"event":"damage"}""";
+            sessionManager.broadcast("entity.damage", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Damage event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle inventory change event (SDK 2.0).
+     */
+    private void onInventoryChange(LivingEntityInventoryChangeEvent event) {
+        try {
+            String payload = """
+                    {"event":"inventory_change"}""";
+            sessionManager.broadcast("inventory.change", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Inventory change event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle crafting event (SDK 2.0).
+     */
+    private void onCraftRecipe(CraftRecipeEvent event) {
+        try {
+            String payload = """
+                    {"event":"craft"}""";
+            sessionManager.broadcast("inventory.craft", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Craft event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle item drop event (SDK 2.0).
+     */
+    private void onDropItem(DropItemEvent event) {
+        try {
+            String payload = """
+                    {"event":"drop"}""";
+            sessionManager.broadcast("inventory.drop", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Drop item event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle permission change event (SDK 2.0).
+     */
+    private void onPermissionChange(PlayerPermissionChangeEvent event) {
+        try {
+            String payload = """
+                    {"event":"permission_change"}""";
+            sessionManager.broadcast("player.permission", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Permission change event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle group change event (SDK 2.0).
+     */
+    private void onGroupChange(PlayerGroupEvent event) {
+        try {
+            String payload = """
+                    {"event":"group_change"}""";
+            sessionManager.broadcast("player.group", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Group change event broadcast failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle zone discovery event (SDK 2.0).
+     */
+    private void onZoneDiscovery(DiscoverZoneEvent event) {
+        try {
+            String payload = """
+                    {"event":"zone_discovery"}""";
+            sessionManager.broadcast("world.zone_discovery", payload);
+        } catch (Exception e) {
+            LOGGER.fine("Zone discovery event broadcast failed: " + e.getMessage());
+        }
+    }
 
     /**
      * Shutdown the broadcaster.

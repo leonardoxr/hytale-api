@@ -15,20 +15,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew compileJava
 ```
 
-The output JAR is placed in `build/libs/hytale-api-1.0.0.jar`.
+The output JAR is placed in `build/libs/hytale-api-2.0.0.jar`.
 
 ## Project Overview
 
 Hytale API Plugin is a Netty-based REST and WebSocket server that runs as a plugin inside a Hytale game server. It provides authenticated API access for server management and real-time event streaming.
 
+**Plugin Version:** 2.0.0 (updated for Hytale SDK 2.0 / Early Access Jan 2026)
+
 **Java Version:** 25 (uses pattern matching, records, sealed interfaces, virtual threads)
 
 **Dependencies:** All runtime dependencies (Netty, Nimbus JOSE JWT, Gson) are bundled in HytaleServer.jar and accessed via `compileOnly`.
 
+**Plugin Manifest:** `src/main/resources/manifest.json` — uses Group:Name identifier format (`com.hytale:HytaleAPI`)
+
 ## Architecture
 
 ### Entry Point
-`ApiPlugin` extends `JavaPlugin` from the Hytale server SDK. Lifecycle: `setup()` → `start()` → `shutdown()`.
+`ApiPlugin` extends `JavaPlugin` from the Hytale server SDK (`com.hypixel.hytale.server.core.plugin.JavaPlugin`).
+Lifecycle: `setup()` → `start()` → `shutdown()`.
+
+Available registries (from `PluginBase`):
+- `getEventRegistry()` — Register event handlers (sync/async)
+- `getCommandRegistry()` — Register custom commands
+- `getTaskRegistry()` — Schedule async/delayed tasks
+- `getEntityRegistry()` — Custom entity types
+- `getDataDirectory()` — Plugin-specific file storage
 
 ### HTTP Layer (Netty Pipeline)
 ```
@@ -69,14 +81,42 @@ Checked via `ClientIdentity.hasPermission()` and `ApiPermissions.matches()`.
 
 ### WebSocket Events
 `EventBroadcaster` subscribes to Hytale server events and pushes to WebSocket clients:
-- `player.connect`, `player.join`, `player.leave` - Connection lifecycle
-- `player.chat` - Chat messages
-- `player.gamemode` - Game mode changes
-- `entity.remove` - Entity removal
-- `server.status` - Periodic status (via virtual thread scheduler)
-- `server.log` - Real-time server log streaming (via `LogBroadcaster`)
 
-Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe with `{"type":"subscribe","events":["player.*","server.log"]}`.
+**Player Events:**
+- `player.connect`, `player.join`, `player.leave` — Connection lifecycle
+- `player.chat` — Chat messages (async event via `registerAsyncGlobal`)
+- `player.gamemode` — Game mode changes
+- `player.interact` — Player interactions with blocks/entities (SDK 2.0)
+- `player.world_change` — World entry/exit (SDK 2.0)
+- `player.permission`, `player.group` — Permission/group changes (SDK 2.0)
+
+**Entity Events:**
+- `entity.remove` — Entity removal
+- `entity.death` — Entity death (ECS event, SDK 2.0)
+- `entity.damage` — Entity damage (ECS event, SDK 2.0)
+
+**Block Events (SDK 2.0):**
+- `block.break` — Block breaking (ECS event)
+- `block.place` — Block placement (ECS event)
+
+**Inventory Events (SDK 2.0):**
+- `inventory.change` — Inventory slot changes
+- `inventory.craft` — Crafting completion
+- `inventory.drop` — Item drops
+
+**World Events (SDK 2.0):**
+- `world.zone_discovery` — Zone exploration
+
+**Server Events:**
+- `server.status` — Periodic status (via virtual thread scheduler)
+- `server.log` — Real-time server log streaming (via `LogBroadcaster`)
+
+Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe with `{"type":"subscribe","events":["player.*","server.log","block.*","inventory.*"]}`.
+
+### Event Registration Notes
+- `PlayerChatEvent` is **async** — must use `registerAsyncGlobal()`
+- Block/damage/death events are **ECS events** — registered via `registerGlobal()` with fallback
+- ECS events may require `EntityEventSystem` pattern in future SDK versions
 
 ### Configuration
 `ApiConfig` is a record hierarchy loaded from `config.json` in `mods/com.hytale_HytaleAPI/`. Nested records: `TlsConfig`, `JwtConfig`, `ClientConfig`, `RateLimitConfig`, `CorsConfig`, `WebSocketConfig`, `AuditConfig`.
@@ -90,6 +130,7 @@ Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe
 - **Sealed interfaces:** `ValidatedToken` uses sealed interface with `Valid`, `Invalid`, `Expired` cases
 - **Pattern matching:** Switch expressions in router and handlers destructure sealed types
 - **Sharable handlers:** Netty handlers marked `@Sharable` are thread-safe singletons
+- **ECS Integration:** Block/damage/death events use Hytale's Entity Component System
 
 ## API Endpoints
 
@@ -105,6 +146,7 @@ Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe
 | GET | /server/status | api.status.read |
 | GET | /server/stats | api.status.read |
 | GET | /server/version | api.version.read |
+| GET | /server/tps | api.server.tps.read |
 | GET | /server/metrics | api.server.metrics.read |
 | GET | /server/plugins | api.server.plugins.read |
 | POST | /server/whitelist | api.server.whitelist.write |
@@ -126,6 +168,9 @@ Clients authenticate via `{"type":"auth","token":"..."}` message, then subscribe
 | GET | /players/{uuid}/groups | api.players.groups.read |
 | POST | /players/{uuid}/groups | api.players.groups.write |
 | POST | /players/{uuid}/message | api.players.message |
+| POST | /players/{uuid}/heal | api.players.heal |
+| GET | /players/{uuid}/effects | api.players.effects.read |
+| POST | /players/{uuid}/effects | api.players.effects.write |
 
 ### Player Inventory
 | Method | Path | Permission |
@@ -180,10 +225,10 @@ Handlers are organized by domain:
 - `StatusHandler` - Server status and stats
 - `VersionHandler` - Version information
 - `PlayerHandler` - Basic player listing
-- `PlayerExtendedHandler` - Stats, location, teleport, gamemode, permissions
+- `PlayerExtendedHandler` - Stats, location, teleport, gamemode, permissions, heal, effects
 - `PlayerInventoryHandler` - Inventory management
 - `WorldHandler` - World listing and details
 - `WorldExtendedHandler` - Time, weather, entities, blocks
-- `ServerExtendedHandler` - Metrics, plugins, whitelist, save
+- `ServerExtendedHandler` - Metrics, plugins, whitelist, save, TPS
 - `ChatHandler` - Chat muting
 - `AdminHandler` - Commands, kick, ban, broadcast

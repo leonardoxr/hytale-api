@@ -25,14 +25,17 @@ import java.util.logging.Logger;
  * for server management and monitoring.
  *
  * Features:
- * - JWT authentication
- * - Rate limiting
- * - WebSocket real-time events
+ * - JWT authentication (RS256)
+ * - Rate limiting with per-endpoint configuration
+ * - WebSocket real-time events (30+ event types)
  * - TLS support (optional)
  * - Permission-based access control
+ * - ECS event integration (block, inventory, death, damage)
+ * - Player interaction and world change tracking
+ * - Zone discovery and permission change events
  *
  * @author HytaleAPI Team
- * @version 1.0.0
+ * @version 2.0.0
  */
 public final class ApiPlugin extends JavaPlugin {
     private static final Logger LOGGER = Logger.getLogger(ApiPlugin.class.getName());
@@ -198,22 +201,18 @@ public final class ApiPlugin extends JavaPlugin {
 
         LOGGER.info(sb.toString());
 
-        // Log available endpoints
-        LOGGER.info("Available endpoints:");
-        LOGGER.info("  GET  /health              - Health check (no auth)");
-        LOGGER.info("  POST /auth/token          - Get JWT token");
-        LOGGER.info("  GET  /server/status       - Server status");
-        LOGGER.info("  GET  /players             - Player list");
-        LOGGER.info("  GET  /players/{uuid}      - Player details");
-        LOGGER.info("  GET  /worlds              - World list");
-        LOGGER.info("  GET  /worlds/{uuid}       - World details");
-        LOGGER.info("  POST /admin/command       - Execute command");
-        LOGGER.info("  POST /admin/kick          - Kick player");
-        LOGGER.info("  POST /admin/ban           - Ban player");
-        LOGGER.info("  POST /admin/broadcast     - Broadcast message");
+        // Log available endpoint groups
+        LOGGER.info("Available endpoint groups:");
+        LOGGER.info("  Public:  /health, /auth/token");
+        LOGGER.info("  Server:  /server/status, /server/stats, /server/version, /server/tps, /server/metrics, /server/plugins");
+        LOGGER.info("  Players: /players, /players/{uuid}, .../stats, .../location, .../teleport, .../gamemode");
+        LOGGER.info("  Player+: .../inventory, .../permissions, .../groups, .../message, .../effects, .../heal");
+        LOGGER.info("  Worlds:  /worlds, /worlds/{id}, .../time, .../weather, .../entities, .../blocks/{x}/{y}/{z}");
+        LOGGER.info("  Admin:   /admin/command, /admin/kick, /admin/ban, /admin/broadcast");
+        LOGGER.info("  Chat:    /chat/mute/{uuid}");
 
         if (config.websocket().enabled()) {
-            LOGGER.info("WebSocket events: player.join, player.leave, player.chat, server.status, server.log");
+            LOGGER.info("WebSocket events: player.*, server.*, block.*, inventory.*, entity.*, world.*");
         }
     }
 

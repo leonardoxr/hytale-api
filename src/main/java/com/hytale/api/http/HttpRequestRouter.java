@@ -51,6 +51,8 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
     private static final Pattern PLAYERS_PERMISSIONS_REVOKE = Pattern.compile("^/players/([a-fA-F0-9-]+)/permissions/(.+)$");
     private static final Pattern PLAYERS_GROUPS = Pattern.compile("^/players/([a-fA-F0-9-]+)/groups$");
     private static final Pattern PLAYERS_MESSAGE = Pattern.compile("^/players/([a-fA-F0-9-]+)/message$");
+    private static final Pattern PLAYERS_HEAL = Pattern.compile("^/players/([a-fA-F0-9-]+)/heal$");
+    private static final Pattern PLAYERS_EFFECTS = Pattern.compile("^/players/([a-fA-F0-9-]+)/effects$");
 
     // Extended world patterns
     private static final Pattern WORLDS_TIME = Pattern.compile("^/worlds/([^/]+)/time$");
@@ -183,6 +185,11 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
             return serverExtendedHandler.handleSave(request, identity);
         }
 
+        // Server TPS (SDK 2.0)
+        if (path.equals("/server/tps") && method == HttpMethod.GET) {
+            return serverExtendedHandler.handleTps(request, identity);
+        }
+
         // Players list
         if (path.equals("/players") && method == HttpMethod.GET) {
             return playersHandler.handleList(request, identity);
@@ -281,6 +288,23 @@ public final class HttpRequestRouter extends SimpleChannelInboundHandler<FullHtt
         Matcher playerMessageMatcher = PLAYERS_MESSAGE.matcher(path);
         if (playerMessageMatcher.matches() && method == HttpMethod.POST) {
             return playerExtendedHandler.handleSendMessage(request, identity, playerMessageMatcher.group(1));
+        }
+
+        // Player heal (SDK 2.0)
+        Matcher playerHealMatcher = PLAYERS_HEAL.matcher(path);
+        if (playerHealMatcher.matches() && method == HttpMethod.POST) {
+            return playerExtendedHandler.handleHeal(request, identity, playerHealMatcher.group(1));
+        }
+
+        // Player effects (SDK 2.0)
+        Matcher playerEffectsMatcher = PLAYERS_EFFECTS.matcher(path);
+        if (playerEffectsMatcher.matches()) {
+            String uuid = playerEffectsMatcher.group(1);
+            if (method == HttpMethod.GET) {
+                return playerExtendedHandler.handleGetEffects(request, identity, uuid);
+            } else if (method == HttpMethod.POST) {
+                return playerExtendedHandler.handleApplyEffect(request, identity, uuid);
+            }
         }
 
         // Player detail (must come after more specific player routes)

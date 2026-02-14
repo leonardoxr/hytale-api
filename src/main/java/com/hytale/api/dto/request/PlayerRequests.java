@@ -65,4 +65,34 @@ public final class PlayerRequests {
             return message != null && !message.isBlank();
         }
     }
+
+    /**
+     * Request to heal a player.
+     */
+    public record HealRequest(Double amount) {
+        public boolean isValid() {
+            return amount == null || amount > 0; // null means full heal
+        }
+
+        public boolean isFullHeal() {
+            return amount == null;
+        }
+    }
+
+    /**
+     * Request to apply an effect to a player.
+     */
+    public record ApplyEffectRequest(String effectId, Integer amplifier, Integer durationTicks) {
+        public boolean isValid() {
+            return effectId != null && !effectId.isBlank();
+        }
+
+        public int getAmplifierOrDefault() {
+            return amplifier != null ? amplifier : 0;
+        }
+
+        public int getDurationOrDefault() {
+            return durationTicks != null ? durationTicks : 600; // Default 30 seconds at 20 TPS
+        }
+    }
 }

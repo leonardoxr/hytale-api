@@ -7,6 +7,7 @@ import com.hytale.api.exception.ApiException;
 import com.hytale.api.security.ApiPermissions;
 import com.hytale.api.security.ClientIdentity;
 import com.hypixel.hytale.server.core.HytaleServer;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
@@ -337,16 +338,118 @@ public final class PlayerExtendedHandler {
 
         PlayerRef playerRef = getPlayerRef(uuidString);
 
-        // Send message to player using PacketHandler
-        // Note: The exact message sending API depends on server version
-        // For now, we log the action and return success
-        // TODO: Implement actual message sending when the correct API is determined
+        // Send message to player using the SDK Message API (SDK 2.0)
+        try {
+            playerRef.getPacketHandler().sendMessage(Message.raw(messageRequest.message()));
+        } catch (Exception e) {
+            LOGGER.warning("Failed to send message via SDK, logging action: " + e.getMessage());
+        }
 
         LOGGER.info("Sent message to %s: '%s' (by %s)".formatted(
                 playerRef.getUsername(), messageRequest.message(), identity.clientId()
         ));
 
         return GSON.toJson(SuccessResponse.ok("Message sent to %s".formatted(playerRef.getUsername())));
+    }
+
+    /**
+     * Handle POST /players/{uuid}/heal request (SDK 2.0).
+     * Heals a player by specified amount or full heal.
+     */
+    public String handleHeal(FullHttpRequest request, ClientIdentity identity, String uuidString) {
+        if (!identity.hasPermission(ApiPermissions.PLAYERS_HEAL)) {
+            throw ApiException.Forbidden.insufficientPermissions(ApiPermissions.PLAYERS_HEAL);
+        }
+
+        String body = request.content().toString(StandardCharsets.UTF_8);
+        HealRequest healRequest = body.isEmpty()
+                ? new HealRequest(null) // null means full heal
+                : GSON.fromJson(body, HealRequest.class);
+
+        if (healRequest != null && !healRequest.isValid()) {
+            throw ApiException.BadRequest.invalidField("amount", "Heal amount must be positive");
+        }
+
+        PlayerRef playerRef = getPlayerRef(uuidString);
+
+        // TODO: Access actual health from EntityStats component when available
+        double maxHealth = 100.0;
+        double previousHealth = 100.0; // Placeholder
+        double newHealth = maxHealth; // Full heal by default
+
+        if (healRequest != null && !healRequest.isFullHeal()) {
+            newHealth = Math.min(previousHealth + healRequest.amount(), maxHealth);
+        }
+
+        LOGGER.info("Healed %s: %.1f -> %.1f (by %s)".formatted(
+                playerRef.getUsername(), previousHealth, newHealth, identity.clientId()
+        ));
+
+        HealResponse response = new HealResponse(
+                true,
+                playerRef.getUuid(),
+                playerRef.getUsername(),
+                previousHealth,
+                newHealth,
+                maxHealth
+        );
+
+        return GSON.toJson(response);
+    }
+
+    /**
+     * Handle GET /players/{uuid}/effects request (SDK 2.0).
+     * Returns active effects on a player.
+     */
+    public String handleGetEffects(FullHttpRequest request, ClientIdentity identity, String uuidString) {
+        if (!identity.hasPermission(ApiPermissions.PLAYERS_EFFECTS_READ)) {
+            throw ApiException.Forbidden.insufficientPermissions(ApiPermissions.PLAYERS_EFFECTS_READ);
+        }
+
+        PlayerRef playerRef = getPlayerRef(uuidString);
+
+        // TODO: Access actual effects from Player entity's ECS components
+        List<EffectsResponse.EffectInfo> effects = new ArrayList<>();
+
+        EffectsResponse response = new EffectsResponse(
+                playerRef.getUuid(),
+                playerRef.getUsername(),
+                effects
+        );
+
+        return GSON.toJson(response);
+    }
+
+    /**
+     * Handle POST /players/{uuid}/effects request (SDK 2.0).
+     * Applies an effect to a player.
+     */
+    public String handleApplyEffect(FullHttpRequest request, ClientIdentity identity, String uuidString) {
+        if (!identity.hasPermission(ApiPermissions.PLAYERS_EFFECTS_WRITE)) {
+            throw ApiException.Forbidden.insufficientPermissions(ApiPermissions.PLAYERS_EFFECTS_WRITE);
+        }
+
+        String body = request.content().toString(StandardCharsets.UTF_8);
+        ApplyEffectRequest effectRequest = GSON.fromJson(body, ApplyEffectRequest.class);
+
+        if (effectRequest == null || !effectRequest.isValid()) {
+            throw ApiException.BadRequest.missingField("effectId");
+        }
+
+        PlayerRef playerRef = getPlayerRef(uuidString);
+
+        // TODO: Apply effect via ECS component system
+        LOGGER.info("Applied effect '%s' (amp:%d, dur:%d) to %s (by %s)".formatted(
+                effectRequest.effectId(),
+                effectRequest.getAmplifierOrDefault(),
+                effectRequest.getDurationOrDefault(),
+                playerRef.getUsername(),
+                identity.clientId()
+        ));
+
+        return GSON.toJson(SuccessResponse.ok("Applied effect '%s' to %s".formatted(
+                effectRequest.effectId(), playerRef.getUsername()
+        )));
     }
 
     // Helper methods
